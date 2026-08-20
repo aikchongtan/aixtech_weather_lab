@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useState } from 'rea
 import {
   listLocations,
   createLocation,
+  deleteLocation,
   refreshLocation,
   logInteraction,
 } from '../api';
@@ -93,6 +94,26 @@ export function StoreProvider({ children }: ProviderProps) {
     [load],
   );
 
+  const remove = useCallback(
+    async (id: number) => {
+      setError(null);
+      logInteraction('location_delete_clicked', { locationId: id });
+      try {
+        await deleteLocation(id);
+        await load();
+        logInteraction('location_deleted', { locationId: id });
+      } catch (err) {
+        setError(err);
+        logInteraction('location_delete_failed', {
+          locationId: id,
+          error: err instanceof Error ? err.message : 'Unknown error',
+        });
+        throw err;
+      }
+    },
+    [load],
+  );
+
   const value: StoreValue = {
     locations,
     selectedId: effectiveSelectedId,
@@ -107,6 +128,7 @@ export function StoreProvider({ children }: ProviderProps) {
     },
     create,
     refresh,
+    remove,
   };
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
