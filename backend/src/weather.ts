@@ -98,27 +98,23 @@ interface PsiPayload {
 }
 
 interface TwentyFourHourPayload {
-  code?: number;
-  errorMsg?: string;
-  data?: {
-    records?: Array<{
-      timestamp?: string;
-      updatedTimestamp?: string;
-      general?: {
-        temperature?: {
-          low?: number | string;
-          high?: number | string;
-        };
+  items?: Array<{
+    timestamp?: string;
+    update_timestamp?: string;
+    general?: {
+      temperature?: {
+        low?: number | string;
+        high?: number | string;
       };
-      periods?: Array<{
-        timePeriod?: {
-          start?: string;
-          text?: string;
-        };
-        regions?: Record<string, { text?: string; code?: string }>;
-      }>;
+    };
+    periods?: Array<{
+      time?: {
+        start?: string;
+        end?: string;
+      };
+      regions?: Record<string, string>;
     }>;
-  };
+  }>;
 }
 
 interface FourDayPayload {
@@ -192,10 +188,12 @@ export class SingaporeWeatherClient {
       ? this.snapshotFromPayload(forecastPayload, latitude, longitude)
       : this.emptyForecastSnapshot();
 
-    const [temperature, humidity, rainfall] = await Promise.allSettled([
+    const [temperature, humidity, rainfall, hourly, daily] = await Promise.allSettled([
       this.fetchNearestReading('air-temperature', latitude, longitude),
       this.fetchNearestReading('relative-humidity', latitude, longitude),
       this.fetchNearestReading('rainfall', latitude, longitude),
+      this.fetchTwentyFourHourForecast(latitude, longitude),
+      this.fetchFourDayForecast(),
     ]);
 
     return {
@@ -203,6 +201,10 @@ export class SingaporeWeatherClient {
       temperature_c: temperature.status === 'fulfilled' ? temperature.value.value : null,
       humidity_percent: humidity.status === 'fulfilled' ? humidity.value.value : null,
       rainfall_mm: rainfall.status === 'fulfilled' ? rainfall.value.value : null,
+      forecast_low_c: hourly.status === 'fulfilled' ? hourly.value.low : null,
+      forecast_high_c: hourly.status === 'fulfilled' ? hourly.value.high : null,
+      forecast_periods: hourly.status === 'fulfilled' ? hourly.value.periods : [],
+      daily_forecast: daily.status === 'fulfilled' ? daily.value.days : [],
     };
   }
 
@@ -333,26 +335,21 @@ export class SingaporeWeatherClient {
     timestamp: string | null;
   }> {
     const payload = await this.fetchJson<TwentyFourHourPayload>(
-      `${this.apiBaseUrl()}/v2/real-time/api/twenty-four-hr-forecast`,
+      `${this.legacyApiBaseUrl()}/v1/environment/24-hour-weather-forecast`,
     );
-    if (payload.code !== undefined && payload.code !== 0) {
-      throw new WeatherProviderError(
-        payload.errorMsg ?? 'Weather provider returned a 24-hour forecast error',
-      );
-    }
 
-    const record = payload.data?.records?.[0];
-    const region = nearestRegionName(defaultRegions(), latitude, longitude) ?? 'central';
+    const record = payload.items?.[0];
+    const region = nearestRegionName(defaultRegions(), latitude, longitude);
     return {
       low: numberOrNull(record?.general?.temperature?.low),
       high: numberOrNull(record?.general?.temperature?.high),
       periods: (record?.periods ?? [])
         .map((period) => ({
-          label: period.timePeriod?.text ?? '',
-          forecast: period.regions?.[region]?.text ?? period.regions?.central?.text ?? '',
+          label: [period.time?.start, period.time?.end].filter(Boolean).join(' to '),
+          forecast: region ? period.regions?.[region] ?? '' : '',
         }))
         .filter((period) => period.label && period.forecast),
-      timestamp: record?.updatedTimestamp ?? record?.timestamp ?? null,
+      timestamp: record?.update_timestamp ?? record?.timestamp ?? null,
     };
   }
 

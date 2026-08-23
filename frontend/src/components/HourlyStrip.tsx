@@ -5,9 +5,26 @@ interface HourlyStripProps {
   periods?: ForecastPeriod[];
 }
 
-function shortenLabel(label: string): string {
+function formatTime(value: string): string | null {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Singapore',
+    hour: 'numeric',
+    hour12: true,
+  }).format(date);
+}
+
+function formatPeriodLabel(label: string): string {
   if (!label) return '';
-  const start = label.split(' to ')[0];
+
+  const [start, end] = label.split(' to ');
+  const formattedStart = formatTime(start);
+  const formattedEnd = end ? formatTime(end) : null;
+
+  if (formattedStart && formattedEnd) return `${formattedStart}–${formattedEnd}`;
+  if (formattedStart) return formattedStart;
   return start.replace(/\s\d{4}\b/, '');
 }
 
@@ -27,7 +44,7 @@ export function HourlyStrip({ periods = [] }: HourlyStripProps) {
 
   const slots = periods.map((period, index) => ({
     key: `${period.label}-${index}`,
-    label: index === 0 ? 'Now' : shortenLabel(period.label),
+    label: index === 0 ? 'Now' : formatPeriodLabel(period.label),
     forecast: period.forecast,
   }));
 
@@ -37,23 +54,30 @@ export function HourlyStrip({ periods = [] }: HourlyStripProps) {
         24-hour regional forecast.
       </p>
       <div
-        className="grid divide-x divide-white/5"
-        style={{ gridTemplateColumns: `repeat(${slots.length}, minmax(0, 1fr))` }}
+        role="region"
+        aria-label="Hourly forecast timeline"
+        tabIndex={0}
+        className="overflow-x-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/40"
       >
-        {slots.map((slot) => {
-          const isFair = slot.forecast?.toLowerCase().includes('fair');
-          return (
-            <div key={slot.key} className="flex flex-col items-center gap-2 px-2 py-4 text-center">
-              <div className="text-xs font-medium text-white/85">{slot.label}</div>
-              {isFair ? (
-                <SunIcon className="h-7 w-7 text-amber-300" />
-              ) : (
-                <CloudIcon className="h-7 w-7 text-white/85" />
-              )}
-              <div className="text-xs leading-snug text-white/90">{slot.forecast}</div>
-            </div>
-          );
-        })}
+        <div
+          className="grid min-w-max divide-x divide-white/5"
+          style={{ gridTemplateColumns: `repeat(${slots.length}, minmax(9rem, 1fr))` }}
+        >
+          {slots.map((slot) => {
+            const isFair = slot.forecast?.toLowerCase().includes('fair');
+            return (
+              <div key={slot.key} className="flex flex-col items-center gap-2 px-2 py-4 text-center">
+                <div className="text-xs font-medium text-white/85">{slot.label}</div>
+                {isFair ? (
+                  <SunIcon className="h-7 w-7 text-amber-300" />
+                ) : (
+                  <CloudIcon className="h-7 w-7 text-white/85" />
+                )}
+                <div className="text-xs leading-snug text-white/90">{slot.forecast}</div>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </section>
   );
