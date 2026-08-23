@@ -188,9 +188,22 @@ export class SingaporeWeatherClient {
 
   async getCurrentWeather(latitude: number, longitude: number): Promise<WeatherSnapshot> {
     const forecastPayload = await this.fetchLatestForecastPayload().catch(() => null);
-    return forecastPayload
+    const snapshot = forecastPayload
       ? this.snapshotFromPayload(forecastPayload, latitude, longitude)
       : this.emptyForecastSnapshot();
+
+    const [temperature, humidity, rainfall] = await Promise.allSettled([
+      this.fetchNearestReading('air-temperature', latitude, longitude),
+      this.fetchNearestReading('relative-humidity', latitude, longitude),
+      this.fetchNearestReading('rainfall', latitude, longitude),
+    ]);
+
+    return {
+      ...snapshot,
+      temperature_c: temperature.status === 'fulfilled' ? temperature.value.value : null,
+      humidity_percent: humidity.status === 'fulfilled' ? humidity.value.value : null,
+      rainfall_mm: rainfall.status === 'fulfilled' ? rainfall.value.value : null,
+    };
   }
 
   async fetchLatestForecastPayload(): Promise<ForecastPayload> {

@@ -1,5 +1,5 @@
 import { useStore } from '../state/store';
-import { CloudIcon, CloseIcon, HomeIcon } from './icons';
+import { CloudIcon, CloseIcon, DropletIcon, HomeIcon } from './icons';
 import { formatTemperature, formatTime } from './format';
 import { useState, type KeyboardEvent, type MouseEvent } from 'react';
 import type { Location } from '../types';
@@ -21,6 +21,15 @@ export function SidebarCard({ location, isHome }: SidebarCardProps) {
   const temperature = formatTemperature(location.weather.temperature_c);
   const high = formatTemperature(location.weather.forecast_high_c);
   const low = formatTemperature(location.weather.forecast_low_c);
+  const humidity =
+    typeof location.weather.humidity_percent === 'number' &&
+    Number.isFinite(location.weather.humidity_percent)
+      ? `${Math.round(location.weather.humidity_percent)}%`
+      : '--%';
+  const rainfall =
+    typeof location.weather.rainfall_mm === 'number' && Number.isFinite(location.weather.rainfall_mm)
+      ? `${location.weather.rainfall_mm.toFixed(1)} mm`
+      : '-- mm';
 
   const onSelect = () => select(location.id);
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
@@ -74,7 +83,7 @@ export function SidebarCard({ location, isHome }: SidebarCardProps) {
           </div>
         </div>
         <div className="flex items-start gap-2">
-          <div className="text-3xl font-light tabular-nums text-white/90">{temperature}</div>
+          <div className="text-3xl font-light tabular-nums text-white/90">{temperature}C</div>
           <button
             type="button"
             onClick={onDelete}
@@ -87,13 +96,18 @@ export function SidebarCard({ location, isHome }: SidebarCardProps) {
           </button>
         </div>
       </div>
-      <div className="mt-3 flex items-center justify-between border-t border-white/10 px-4 py-2 text-xs">
-        <div className="flex items-center gap-2 text-white/80">
+      <div className="mt-3 grid gap-1.5 border-t border-white/10 px-4 py-2 text-xs">
+        <div className="flex min-w-0 items-center gap-2 text-white/80">
           <CloudIcon className="h-4 w-4 text-white/70" />
-          <span>{condition}</span>
+          <span className="truncate">{condition}</span>
         </div>
-        <div className="text-white/60 tabular-nums">
-          H:{high} L:{low}
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-white/60 tabular-nums">
+          <span>{humidity}</span>
+          <span className="flex items-center gap-1">
+            <DropletIcon className="h-3.5 w-3.5" />
+            {rainfall}
+          </span>
+          <span>H:{high} L:{low}</span>
         </div>
       </div>
       {deleteError && (

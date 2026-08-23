@@ -73,6 +73,8 @@ describe('locations API', () => {
         condition: 'Cloudy',
         area: 'Bishan',
         temperature_c: 29,
+        humidity_percent: 80,
+        rainfall_mm: 0,
       },
     });
 
