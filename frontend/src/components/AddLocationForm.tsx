@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { useStore } from '../state/store';
-import { PlusIcon } from './icons';
+import { LocationIcon, PlusIcon } from './icons';
 
 export function AddLocationForm() {
   const { isAdding, setAdding, create } = useStore();
   const [latitude, setLatitude] = useState('');
   const [longitude, setLongitude] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [locating, setLocating] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const cancel = () => {
@@ -30,6 +31,45 @@ export function AddLocationForm() {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const onUseMyLocation = () => {
+    if (locating || submitting) return;
+
+    if (!navigator.geolocation) {
+      setSubmitError('Your browser does not support location detection. Enter coordinates manually.');
+      return;
+    }
+
+    setLocating(true);
+    setSubmitError(null);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          await create({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+          });
+          setLatitude('');
+          setLongitude('');
+        } catch (err) {
+          setSubmitError(err instanceof Error ? err.message : 'Could not add your location');
+        } finally {
+          setLocating(false);
+        }
+      },
+      (error) => {
+        if (error.code === error.PERMISSION_DENIED) {
+          setSubmitError('Location permission was denied. Enter coordinates manually.');
+        } else if (error.code === error.TIMEOUT) {
+          setSubmitError('Location detection timed out. Please try again or enter coordinates manually.');
+        } else {
+          setSubmitError('Your location is unavailable. Please try again or enter coordinates manually.');
+        }
+        setLocating(false);
+      },
+      { enableHighAccuracy: false, timeout: 10_000, maximumAge: 60_000 },
+    );
   };
 
   if (!isAdding) {
@@ -79,6 +119,15 @@ export function AddLocationForm() {
           />
         </label>
       </div>
+      <button
+        type="button"
+        onClick={onUseMyLocation}
+        disabled={locating || submitting}
+        className="flex w-full items-center justify-center gap-2 rounded-md border border-white/15 bg-white/[0.07] px-3 py-2 text-xs font-medium text-white/85 hover:bg-white/[0.12] disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        <LocationIcon className="h-4 w-4" />
+        <span>{locating ? 'Finding your location…' : 'Use my location'}</span>
+      </button>
       <div className="flex items-center justify-end gap-2">
         <button
           type="button"
@@ -89,7 +138,7 @@ export function AddLocationForm() {
         </button>
         <button
           type="submit"
-          disabled={submitting}
+          disabled={submitting || locating}
           className="rounded-md bg-white/90 px-3 py-1.5 text-xs font-semibold text-slate-900 hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
         >
           {submitting ? 'Adding…' : 'Add'}
