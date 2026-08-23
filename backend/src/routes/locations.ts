@@ -7,11 +7,17 @@ import {
   listLocations,
   updateWeather,
 } from '../db.js';
-import { SingaporeWeatherClient, WeatherProviderError, type WeatherSnapshot } from '../weather.js';
+import {
+  SingaporeWeatherClient,
+  WeatherProviderError,
+  type ForecastArea,
+  type WeatherSnapshot,
+} from '../weather.js';
 import { logger } from '../logger.js';
 
 export interface WeatherClient {
   getCurrentWeather(latitude: number, longitude: number): Promise<WeatherSnapshot>;
+  getForecastAreas(): Promise<ForecastArea[]>;
 }
 
 interface LocationsRouterOptions {
@@ -27,6 +33,18 @@ export function createLocationsRouter(options: LocationsRouterOptions = {}): Rou
     try {
       response.json({ locations: await listLocations() });
     } catch (error) {
+      next(error);
+    }
+  });
+
+  router.get('/forecast-areas', async (_request, response, next) => {
+    try {
+      response.json({ areas: await weatherClient.getForecastAreas() });
+    } catch (error) {
+      if (error instanceof WeatherProviderError) {
+        response.status(502).json({ detail: 'Forecast areas are unavailable. Please try again.' });
+        return;
+      }
       next(error);
     }
   });

@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import type { WeatherSnapshot } from '../weather.js';
+import { WeatherProviderError, type WeatherSnapshot } from '../weather.js';
 
 const weather: WeatherSnapshot = {
   condition: 'Cloudy',
@@ -42,6 +42,12 @@ describe('locations API', () => {
       weatherClient: {
         async getCurrentWeather() {
           return weather;
+        },
+        async getForecastAreas() {
+          return [
+            { name: 'Bishan', latitude: 1.3508, longitude: 103.8489 },
+            { name: 'Tampines', latitude: 1.352, longitude: 103.944 },
+          ];
         },
       },
     });
@@ -93,5 +99,37 @@ describe('locations API', () => {
     const response = await request(app).delete('/api/locations/999').expect(404);
 
     expect(response.body).toEqual({ detail: 'Location not found' });
+  });
+
+  it('lists forecast areas using the application response contract', async () => {
+    const response = await request(app).get('/api/forecast-areas').expect(200);
+
+    expect(response.body).toEqual({
+      areas: [
+        { name: 'Bishan', latitude: 1.3508, longitude: 103.8489 },
+        { name: 'Tampines', latitude: 1.352, longitude: 103.944 },
+      ],
+    });
+  });
+
+  it('hides provider errors when forecast areas are unavailable', async () => {
+    const { createLocationsRouter } = await import('./locations.js');
+    const unavailableApp = (await import('express')).default();
+    unavailableApp.use(
+      '/api',
+      createLocationsRouter({
+        weatherClient: {
+          async getCurrentWeather() {
+            return weather;
+          },
+          async getForecastAreas() {
+            throw new WeatherProviderError('provider credentials leaked');
+          },
+        },
+      }),
+    );
+
+    const response = await request(unavailableApp).get('/api/forecast-areas').expect(502);
+    expect(response.body).toEqual({ detail: 'Forecast areas are unavailable. Please try again.' });
   });
 });

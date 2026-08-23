@@ -46,6 +46,12 @@ export interface CreateLocationPayload {
   longitude: number;
 }
 
+export interface ForecastArea {
+  name: string;
+  latitude: number;
+  longitude: number;
+}
+
 export interface StoreValue {
   locations: Location[];
   selectedId: number | null;

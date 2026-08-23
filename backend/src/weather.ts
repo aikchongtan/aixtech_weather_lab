@@ -170,6 +170,12 @@ export interface WeatherSnapshot {
   daily_forecast: DailyForecast[];
 }
 
+export interface ForecastArea {
+  name: string;
+  latitude: number;
+  longitude: number;
+}
+
 export class SingaporeWeatherClient {
   constructor(
     private readonly options: {
@@ -189,6 +195,28 @@ export class SingaporeWeatherClient {
 
   async fetchLatestForecastPayload(): Promise<ForecastPayload> {
     return this.fetchJson(`${this.apiBaseUrl()}/v2/real-time/api/two-hr-forecast`);
+  }
+
+  async getForecastAreas(): Promise<ForecastArea[]> {
+    const payload = await this.fetchLatestForecastPayload();
+    if (payload.code !== undefined && payload.code !== 0) {
+      throw new WeatherProviderError('Forecast areas are unavailable');
+    }
+
+    const areasByName = new Map<string, ForecastArea>();
+    for (const area of (payload.data ?? payload).area_metadata ?? []) {
+      const name = area.name?.trim();
+      const latitude = Number(area.label_location?.latitude);
+      const longitude = Number(area.label_location?.longitude);
+      if (!name || !Number.isFinite(latitude) || !Number.isFinite(longitude)) continue;
+
+      const key = name.toLocaleLowerCase();
+      if (!areasByName.has(key)) areasByName.set(key, { name, latitude, longitude });
+    }
+
+    const areas = [...areasByName.values()].sort((a, b) => a.name.localeCompare(b.name));
+    if (areas.length === 0) throw new WeatherProviderError('Forecast areas are unavailable');
+    return areas;
   }
 
   async fetchNearestReading(

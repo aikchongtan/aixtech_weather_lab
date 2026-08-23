@@ -67,6 +67,7 @@ npm run db:migrate  # Apply Drizzle migrations to backend/weather.db
 | `GET`  | `/health`                    | Health check                   |
 | `GET`  | `/api/locations`             | List all locations             |
 | `POST` | `/api/locations`             | Create a location              |
+| `GET`  | `/api/forecast-areas`        | List selectable Singapore areas |
 | `GET`  | `/api/locations/:id`         | Get a single location          |
 | `DELETE` | `/api/locations/:id`       | Delete a saved location        |
 | `POST` | `/api/locations/:id/refresh` | Refresh weather for a location |

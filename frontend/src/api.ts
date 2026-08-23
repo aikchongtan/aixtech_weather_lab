@@ -1,9 +1,13 @@
-import type { CreateLocationPayload, Location } from './types';
+import type { CreateLocationPayload, ForecastArea, Location } from './types';
 
 const API_BASE = '/api';
 
 interface LocationsResponse {
   locations: Location[];
+}
+
+interface ForecastAreasResponse {
+  areas: ForecastArea[];
 }
 
 interface ApiError {
@@ -24,6 +28,8 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
 }
 
 export const listLocations = () => request<LocationsResponse>('/locations');
+
+export const listForecastAreas = () => request<ForecastAreasResponse>('/forecast-areas');
 
 export const createLocation = (payload: CreateLocationPayload) =>
   request<Location>('/locations', { method: 'POST', body: JSON.stringify(payload) });
