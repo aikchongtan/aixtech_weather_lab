@@ -58,10 +58,10 @@ export function SidebarCard({ location, isHome }: SidebarCardProps) {
       onClick={onSelect}
       onKeyDown={onKeyDown}
       aria-pressed={isSelected}
-      className={`relative w-full cursor-pointer overflow-hidden rounded-2xl border text-left backdrop-blur-xl transition ${
+      className={`relative w-full cursor-pointer overflow-hidden rounded-2xl border text-left shadow-lg shadow-black/10 backdrop-blur-xl transition ${
         isSelected
-          ? 'border-white/30 bg-white/20 shadow-lg shadow-black/20'
-          : 'border-white/10 bg-white/[0.07] hover:bg-white/[0.12]'
+          ? 'border-sky-100/50 bg-sky-100/20 shadow-sky-950/30'
+          : 'border-white/10 bg-slate-950/20 hover:border-white/20 hover:bg-white/[0.12]'
       }`}
     >
       <div className="flex items-start justify-between gap-3 px-4 pt-3">

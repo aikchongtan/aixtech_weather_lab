@@ -19,7 +19,7 @@ export function Sidebar() {
   }, [locations, query]);
 
   return (
-    <aside className="flex w-[22rem] shrink-0 flex-col gap-3 border-r border-white/5 bg-black/20 p-4 backdrop-blur-2xl">
+    <aside className="flex w-full shrink-0 flex-col gap-3 border-b border-white/10 bg-slate-950/25 p-4 backdrop-blur-2xl lg:w-[22rem] lg:border-b-0 lg:border-r lg:border-white/5">
       <div className="relative">
         <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/50" />
         <input
@@ -33,7 +33,7 @@ export function Sidebar() {
 
       <AddLocationForm />
 
-      <div className="flex flex-col gap-2 overflow-y-auto pr-1">
+      <div className="flex max-h-[22rem] flex-col gap-2 overflow-y-auto pr-1 lg:max-h-none lg:flex-1">
         {isLoading && locations.length === 0 ? (
           <p className="rounded-2xl border border-white/10 bg-white/[0.06] p-4 text-sm text-white/70">
             Loading locations…

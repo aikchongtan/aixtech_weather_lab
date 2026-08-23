@@ -49,7 +49,7 @@ export function HourlyStrip({ periods = [] }: HourlyStripProps) {
   }));
 
   return (
-    <section className="rounded-2xl border border-white/15 bg-white/[0.08] backdrop-blur-xl">
+    <section className="rounded-2xl border border-white/15 bg-slate-950/20 shadow-lg shadow-sky-950/10 backdrop-blur-xl">
       <p className="border-b border-white/10 px-4 py-2 text-[12px] text-white/85">
         24-hour regional forecast.
       </p>

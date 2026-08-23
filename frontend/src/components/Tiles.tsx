@@ -16,7 +16,7 @@ interface TileShellProps {
 function TileShell({ icon, title, className = '', children }: TileShellProps) {
   return (
     <section
-      className={`flex flex-col gap-3 rounded-2xl border border-white/15 bg-white/[0.08] p-4 backdrop-blur-xl ${className}`}
+      className={`flex flex-col gap-3 rounded-2xl border border-white/15 bg-slate-950/20 p-4 shadow-lg shadow-sky-950/10 backdrop-blur-xl ${className}`}
     >
       <header className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/60">
         {icon}

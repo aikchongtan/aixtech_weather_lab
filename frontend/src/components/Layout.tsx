@@ -3,7 +3,7 @@ import { Hero } from './Hero';
 
 export function Layout() {
   return (
-    <div className="flex h-full min-h-screen w-full">
+    <div className="flex min-h-screen w-full flex-col lg:h-screen lg:flex-row">
       <Sidebar />
       <Hero />
     </div>

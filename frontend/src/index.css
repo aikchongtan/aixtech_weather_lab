@@ -11,11 +11,23 @@ body,
 body {
   @apply text-white antialiased;
   background:
-    radial-gradient(120% 80% at 70% 0%, rgba(255, 255, 255, 0.18) 0%, transparent 55%),
-    radial-gradient(90% 70% at 10% 100%, rgba(80, 110, 150, 0.55) 0%, transparent 60%),
-    linear-gradient(170deg, #6f8aa8 0%, #5a7591 35%, #4a627c 65%, #3c5066 100%);
+    radial-gradient(100% 70% at 75% -10%, rgba(125, 211, 252, 0.32) 0%, transparent 55%),
+    radial-gradient(80% 60% at 5% 100%, rgba(45, 212, 191, 0.2) 0%, transparent 60%),
+    linear-gradient(165deg, #17304a 0%, #23445e 45%, #15283d 100%);
   background-attachment: fixed;
   background-repeat: no-repeat;
+}
+
+.leaflet-container {
+  @apply bg-slate-900 font-sans;
+}
+
+.leaflet-control-attribution {
+  @apply bg-slate-950/75 text-[10px] text-white/70;
+}
+
+.leaflet-control-attribution a {
+  @apply text-sky-200;
 }
 
 button,
