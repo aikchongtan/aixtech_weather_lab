@@ -39,6 +39,34 @@ function knotsToKmh(value: number | null | undefined): number | null {
   return isFiniteNumber(value) ? value * 1.852 : null;
 }
 
+function normalizeWindDirection(value: number | null | undefined): number | null {
+  if (!isFiniteNumber(value)) return null;
+  return ((Math.round(value) % 360) + 360) % 360;
+}
+
+function windCardinal(direction: number | null): string | null {
+  if (direction === null) return null;
+  const points = [
+    'N',
+    'NNE',
+    'NE',
+    'ENE',
+    'E',
+    'ESE',
+    'SE',
+    'SSE',
+    'S',
+    'SSW',
+    'SW',
+    'WSW',
+    'W',
+    'WNW',
+    'NW',
+    'NNW',
+  ];
+  return points[Math.round(direction / 22.5) % points.length];
+}
+
 function isFiniteNumber(value: number | null | undefined): value is number {
   return typeof value === 'number' && Number.isFinite(value);
 }
@@ -103,27 +131,29 @@ export function AirQualityTile({ weather }: WeatherProps) {
 export function WindTile({ weather }: WeatherProps) {
   const speedKmh = knotsToKmh(weather?.wind_speed_knots);
   const speed = formatNumber(speedKmh);
-  const direction = formatNumber(weather?.wind_direction_degrees);
-  const hasDirection = isFiniteNumber(weather?.wind_direction_degrees);
+  const direction = normalizeWindDirection(weather?.wind_direction_degrees);
+  const cardinal = windCardinal(direction);
+  const directionLabel = direction === null ? '--' : `${cardinal} · ${direction}°`;
+  const windDescription = `Wind speed ${speed} km/h. Wind direction ${
+    direction === null ? 'unavailable' : `${cardinal}, ${direction} degrees`
+  }.`;
 
   return (
     <TileShell icon={<WindIcon />} title="Wind" className="col-span-2">
       <div className="grid grid-cols-[1fr_auto] items-center gap-4">
         <ul className="space-y-2 text-sm">
           <li
-            className={`flex justify-between ${hasDirection ? 'border-b border-white/10 pb-2' : ''}`}
+            className="flex justify-between border-b border-white/10 pb-2"
           >
             <span className="text-white/75">Wind</span>
             <span className="tabular-nums text-white/90">{speed} km/h</span>
           </li>
-          {hasDirection && (
-            <li className="flex justify-between">
-              <span className="text-white/75">Direction</span>
-              <span className="tabular-nums text-white/90">{direction}&deg;</span>
-            </li>
-          )}
+          <li className="flex justify-between gap-3">
+            <span className="text-white/75">Direction</span>
+            <span className="tabular-nums text-right text-white/90">{directionLabel}</span>
+          </li>
         </ul>
-        <Compass speed={speed} direction={weather?.wind_direction_degrees} />
+        <Compass speed={speed} direction={direction} description={windDescription} />
       </div>
     </TileShell>
   );
@@ -132,13 +162,18 @@ export function WindTile({ weather }: WeatherProps) {
 interface CompassProps {
   speed: string;
   direction: number | null | undefined;
+  description: string;
 }
 
-function Compass({ speed, direction }: CompassProps) {
+function Compass({ speed, direction, description }: CompassProps) {
   const hasDirection = isFiniteNumber(direction);
 
   return (
-    <div className="relative h-20 w-20 rounded-full border border-white/20 bg-white/[0.04]">
+    <div
+      role="img"
+      aria-label={description}
+      className="relative h-20 w-20 rounded-full border border-white/20 bg-white/[0.04]"
+    >
       <span className="absolute left-1/2 top-1 -translate-x-1/2 text-[10px] text-white/55">N</span>
       <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] text-white/55">
         E

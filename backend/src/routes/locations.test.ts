@@ -75,6 +75,12 @@ describe('locations API', () => {
         temperature_c: 29,
         humidity_percent: 80,
         rainfall_mm: 0,
+        forecast_periods: [{ label: 'Now', forecast: 'Cloudy' }],
+        daily_forecast: [
+          { date: '2026-05-04', forecast: 'Cloudy', temperature_low_c: 25, temperature_high_c: 32 },
+        ],
+        wind_speed_knots: 4,
+        wind_direction_degrees: 180,
       },
     });
 
