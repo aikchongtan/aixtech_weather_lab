@@ -25,13 +25,13 @@ paths:
             default: 240
       responses:
         '200':
-          description: The newest requested readings, ordered from oldest to newest.
+          description: The newest requested readings selected by recorded_at DESC, id DESC, then returned by recorded_at ASC, id ASC.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/LocationHistory'
         '400':
-          description: The path identifier or limit is not a positive integer.
+          description: 'The path identifier or limit is not a positive integer. The response uses { "detail": "..." }.'
           content:
             application/json:
               schema:
@@ -58,7 +58,7 @@ components:
             $ref: '#/components/schemas/HistoryReading'
     HistoryReading:
       type: object
-      required: [recorded_at, observed_at, temperature, rainfall, humidity]
+      required: [recorded_at, observed_at, temperature_c, rainfall_mm, humidity_percent]
       properties:
         recorded_at:
           type: string
@@ -68,22 +68,22 @@ components:
           type: [string, 'null']
           format: date-time
           description: Provider observation time when available.
-        temperature:
+        temperature_c:
           type: [number, 'null']
           description: Temperature in degrees Celsius.
-        rainfall:
+        rainfall_mm:
           type: [number, 'null']
           description: Rainfall in millimetres.
-        humidity:
+        humidity_percent:
           type: [number, 'null']
           description: Relative humidity as a percentage.
     ClientError:
       type: object
-      required: [error]
+      required: [detail]
       properties:
-        error:
+        detail:
           type: string
-          example: locationId and limit must be positive integers
+          example: limit must be a positive integer
     NotFoundError:
       type: object
       required: [error]

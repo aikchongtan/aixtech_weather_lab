@@ -18,7 +18,7 @@
 
 ## Decision 3: Make persistence atomic and deletion referentially safe
 
-**Decision**: Enable `PRAGMA foreign_keys = ON` on the SQLite connection. Within exactly one SQLite transaction: update the location's latest snapshot, insert one history row, then delete rows older than the newest 1,000 for that location.
+**Decision**: Enable `PRAGMA foreign_keys = ON` on the SQLite connection. Within exactly one SQLite transaction: update the location's latest snapshot, insert one history row, then delete rows outside the newest 1,000 for that location, ordered by `recorded_at DESC, id DESC`.
 
 **Rationale**: A visible latest snapshot must always have its corresponding history event, and pruning cannot leave an incomplete durable state. `ON DELETE CASCADE` prevents orphaned readings when the current delete flow removes a location.
 
@@ -26,25 +26,27 @@
 
 ## Decision 4: Use application time for ordering
 
-**Decision**: Store `recorded_at` for the successful local persistence event and optional `observed_at` from the provider. Order and retention use the recorded row identity/time rather than provider time.
+**Decision**: Store `recorded_at` for the successful local persistence event and optional `observed_at` from the provider. Retention and window selection order by `recorded_at DESC, id DESC`; returned windows order by `recorded_at ASC, id ASC`.
 
 **Rationale**: Provider observation times may repeat, be absent, or arrive out of order. The history requirement deliberately preserves repeated provider timestamps.
 
-**Implementation note**: Use a stable secondary key (the reading id) with recorded time where ordering needs a deterministic tie-breaker.
+**Implementation note**: `id` is mandatory as the stable secondary key, so same-recorded-time rows have deterministic retention, selection, and output order.
 
 ## Decision 5: Expose a narrow read contract
 
-**Decision**: Provide `GET /api/locations/:locationId/history?limit=…`, defaulting to 240 and returning at most 1,000 newest retained readings in oldest-first order. Values are only recorded time, optional observed time, temperature, rainfall, and humidity.
+**Decision**: Provide `GET /api/locations/:locationId/history?limit=…`, defaulting to 240 and returning at most 1,000 newest retained readings in oldest-first order. Values are only recorded time, optional observed time, `temperature_c`, `rainfall_mm`, and `humidity_percent`.
 
 **Rationale**: It supplies the detail page without exposing external payloads, provider errors, stations, current-only data, or database columns unrelated to the charts.
 
-**Limit rule**: A positive integer limit above 1,000 is capped at 1,000. Missing limit defaults to 240. Invalid/non-positive limits return a client validation error; an unknown/deleted location returns not found.
+**Limit rule**: A positive integer limit above 1,000 is capped at 1,000. Missing limit defaults to 240. Invalid/non-positive limits return HTTP 400 as `{ "detail": "…" }`; an unknown/deleted location returns not found.
 
 ## Decision 6: Add routing without duplicating selection state
 
-**Decision**: Use the approved `react-router-dom` package. The selected dashboard location gets a “View history” navigation action to `/locations/:id`; the detail page resolves its route id and reads history through the API. It reuses the existing store for dashboard selection instead of introducing parallel selected-location state.
+**Decision**: Use the approved `react-router-dom` package and `BrowserRouter`. The selected dashboard location gets a “View history” navigation action to `/locations/:id`; the detail page resolves its route id and reads history through the API. On direct load of an existing location, it synchronizes the existing store via `select(location.id)` rather than creating parallel selected-location state.
 
 **Rationale**: A real URL supports direct navigation, refresh, unknown/deleted handling, and an explicit path back to the dashboard.
+
+**Hosting check**: Verify `/locations/:id` loads in development and from the compiled production build. If either host lacks SPA fallback, add the smallest server/static-host rule that returns the frontend shell only for non-`/api/*` navigation requests; API routes must always continue to reach the backend.
 
 ## Decision 7: Use Recharts plus a textual equivalent
 

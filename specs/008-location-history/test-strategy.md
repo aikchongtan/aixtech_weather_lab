@@ -10,10 +10,10 @@ Add focused tests alongside the current backend tests for:
 
 1. **Atomic successful refresh**: a successful create/refresh updates the current snapshot and creates exactly one matching history row.
 2. **Failed refresh**: a provider failure changes neither the latest snapshot nor history count.
-3. **Duplicates and nulls**: repeated observed timestamps/metric values create separate rows; null temperature, rainfall, and humidity values are retained.
-4. **Retention**: after more than 1,000 successful writes for one location, only its newest 1,000 rows remain; another location is unaffected.
-5. **History contract**: the endpoint defaults to 240, caps an oversized positive request at 1,000, emits no raw provider data, and returns the selected newest subset oldest-first.
-6. **Errors**: malformed/non-positive location ids or limits receive the documented client error; unknown locations receive 404; a deleted location’s history cannot be read.
+3. **Duplicates, nulls, and tie-breaking**: repeated observed timestamps/metric values create separate rows; null `temperature_c`, `rainfall_mm`, and `humidity_percent` values are retained; rows sharing `recorded_at` sort by `id` deterministically.
+4. **Retention**: after more than 1,000 successful writes for one location, only its newest 1,000 rows remain according to `recorded_at DESC, id DESC`; another location is unaffected.
+5. **History contract**: the endpoint defaults to 240, caps an oversized positive request at 1,000, selects the newest requested rows before returning that window oldest-first by `recorded_at ASC, id ASC`, and emits no raw provider data. Include a small-limit fixture that proves older rows outside the newest window are excluded.
+6. **Errors**: malformed/non-positive location ids or limits return HTTP 400 with `{ "detail": "..." }`; unknown locations receive 404; a deleted location’s history cannot be read.
 7. **Cascade**: deleting a location removes its history rows with foreign keys enabled.
 8. **Transaction rollback**: force a write failure in the persistence unit and assert no partial latest-snapshot/history/prune state becomes visible.
 
@@ -27,6 +27,7 @@ If the existing frontend test setup supports component tests, add focused covera
 - The detail page renders all three labelled metrics with their units and accessible reading-equivalent content.
 - Null values are exposed as unavailable and charted as gaps, not zero.
 - Loading, empty, retryable error, and not-found states have a usable dashboard return route.
+- A direct existing `/locations/:id` load invokes the existing `select(location.id)` action rather than creating local selected-location state.
 
 If no frontend component-test harness exists, do not introduce a broad new test framework solely for this task; cover these items in the manual plan and keep the backend contract thoroughly tested.
 
@@ -43,3 +44,5 @@ git diff --check
 ```
 
 The verbose list must show the original 12 tests plus only additive coverage. The doctor command may require the development server, following the README’s Portless guidance.
+
+Also verify direct `/locations/:id` navigation in the development host and the compiled production host. Both must serve the SPA detail route; any fallback must leave `/api/*` requests handled by the API rather than returning the frontend shell.

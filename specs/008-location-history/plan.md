@@ -8,14 +8,14 @@ Persist one bounded, immutable history reading whenever a latest weather snapsho
 
 ## Technical Context
 
-**Language/Version**: TypeScript; Node/Express backend and React 18/Vite frontend.  
-**Primary Dependencies**: Existing Drizzle ORM, SQLite (`node:sqlite`), Vitest, and Supertest. Approved for implementation: `react-router-dom` and `recharts`; neither is installed in this planning change.  
-**Storage**: SQLite with Drizzle schema and a generated migration to be created during implementation.  
-**Testing**: Existing Vitest backend suite (12 tests: 5 route, 7 weather-client) must remain unchanged and passing; add focused database/route coverage and frontend tests where the existing tooling supports them.  
-**Target Platform**: Responsive browser dashboard, including narrow mobile viewports and keyboard/screen-reader use.  
-**Project Type**: Full-stack web application (`backend/` and `frontend/`).  
-**Performance Goals**: Default history response is at most 240 readings; responses never exceed 1,000. Charts must remain responsive with the maximum retained data set.  
-**Constraints**: One SQLite transaction for latest snapshot update, history insert, and retention prune; retain every successful refresh (including repeated provider timestamps and null optional metrics); provider payloads/errors remain private; no regression to dashboard workflows.  
+**Language/Version**: TypeScript; Node/Express backend and React 18/Vite frontend.
+**Primary Dependencies**: Existing Drizzle ORM, SQLite (`node:sqlite`), Vitest, and Supertest. Approved for implementation: `react-router-dom` and `recharts`; neither is installed in this planning change.
+**Storage**: SQLite with Drizzle schema and a generated migration to be created during implementation.
+**Testing**: Existing Vitest backend suite (12 tests: 5 route, 7 weather-client) must remain unchanged and passing; add focused database/route coverage and frontend tests where the existing tooling supports them.
+**Target Platform**: Responsive browser dashboard, including narrow mobile viewports and keyboard/screen-reader use.
+**Project Type**: Full-stack web application (`backend/` and `frontend/`).
+**Performance Goals**: Default history response is at most 240 readings; responses never exceed 1,000. Charts must remain responsive with the maximum retained data set.
+**Constraints**: One SQLite transaction for latest snapshot update, history insert, and retention prune; use `recorded_at, id` as the deterministic ordering pair; retain every successful refresh (including repeated provider timestamps and null optional metrics); provider payloads/errors remain private; no regression to dashboard workflows.
 **Scale/Scope**: One history table, one read endpoint, one routed detail page, three metric charts, and shared navigation only.
 
 ## Constitution Check
@@ -69,10 +69,10 @@ frontend/src/**/*.test.tsx           # add only if project test setup supports i
 ## Implementation Sequence
 
 1. Add the `weather_readings` Drizzle table and migration, including a cascading `location_id` foreign key. Enable SQLite foreign-key enforcement at connection initialization.
-2. Refactor only the snapshot persistence boundary so a successful weather result updates the latest snapshot, inserts one history row, and prunes older rows in one transaction. Do not add a row for failed refreshes.
-3. Add `GET /api/locations/:locationId/history` using the contract in `contracts/location-history.openapi.yaml`; validate identifiers and limits, cap results to 1,000, and return the selected newest readings oldest-first.
+2. Refactor only the snapshot persistence boundary so a successful weather result updates the latest snapshot, inserts one history row, and prunes older rows in one transaction. Retention keeps rows ordered by `recorded_at DESC, id DESC`; do not add a row for failed refreshes.
+3. Add `GET /api/locations/:locationId/history` using the contract in `contracts/location-history.openapi.yaml`; validate identifiers and limits, return invalid limits as HTTP 400 with `{ "detail": "…" }`, cap valid oversized limits at 1,000, select the newest window by `recorded_at DESC, id DESC`, then return that window by `recorded_at ASC, id ASC`.
 4. Add API and route tests before or alongside the backend work, preserving every current route and weather-client test.
-5. Add the approved frontend packages during implementation, introduce the router, and add the selected-dashboard “View history” link. Reuse the store’s selection action and shared shell.
+5. Add the approved frontend packages during implementation, introduce `BrowserRouter`, and add the selected-dashboard “View history” link. On a direct `/locations/:id` load for an existing location, synchronize the existing store with `select(location.id)` rather than creating local selected-location state. Verify development and compiled-production hosting serve the SPA route; if either does not, add only the smallest fallback that serves the frontend shell for non-`/api/*` requests and never intercepts API routes.
 6. Build the detail route with loading, retry, empty, and not-found states. Render three separately labelled charts and an accessible text/table equivalent for every reading; represent null metrics as unavailable gaps.
 7. Run the automated and manual checks in [test-strategy.md](./test-strategy.md) and [manual-acceptance.md](./manual-acceptance.md), including all dashboard regressions.
 

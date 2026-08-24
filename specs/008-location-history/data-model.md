@@ -12,9 +12,9 @@
 | `location_id` | integer foreign key → `locations.id` | no | Owner of the reading; `ON DELETE CASCADE`. |
 | `recorded_at` | text/ISO timestamp | no | Application time at successful persistence; ordering and retention basis. |
 | `observed_at` | text/ISO timestamp | yes | Provider-observed time when available. |
-| `temperature` | real | yes | Temperature in °C. |
-| `rainfall` | real | yes | Rainfall in mm. |
-| `humidity` | real | yes | Relative humidity in %. |
+| `temperature_c` | real | yes | Temperature in °C. |
+| `rainfall_mm` | real | yes | Rainfall in mm. |
+| `humidity_percent` | real | yes | Relative humidity in %. |
 
 Only the user-facing historical metrics are stored. Do not add raw provider payloads, station IDs, wind data, condition text, forecasts, or provider error fields to this table.
 
@@ -34,11 +34,12 @@ locations (1) ──< weather_readings (0..1000)
 
 ## Retention and ordering
 
-- Retain the newest 1,000 rows per location based on `recorded_at` with `id` as a deterministic tie-breaker.
+- Define a composite history-query index on `(location_id, recorded_at, id)`.
+- Retain the newest 1,000 rows per location using `recorded_at DESC, id DESC`.
 - Never deduplicate successful refreshes.
-- The read endpoint first chooses the newest requested rows (default 240, maximum 1,000), then returns that subset in oldest-to-newest order.
+- The read endpoint first chooses the newest requested rows (default 240, maximum 1,000) using `recorded_at DESC, id DESC`, then returns that selected subset using `recorded_at ASC, id ASC`.
 - Null metric values are valid historical observations and are returned as `null`; they are not filtered or converted.
 
 ## Migration requirements
 
-Implementation requires one additive Drizzle migration that creates `weather_readings`, its location/ordering indexes, and the cascading foreign key. Connection initialization must enable `PRAGMA foreign_keys = ON`; SQLite does not guarantee this pragma by schema declaration alone.
+Implementation requires one additive Drizzle migration that creates `weather_readings`, its `(location_id, recorded_at, id)` history-query index, and the cascading foreign key. Connection initialization must enable `PRAGMA foreign_keys = ON`; SQLite does not guarantee this pragma by schema declaration alone.

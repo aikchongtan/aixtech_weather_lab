@@ -4,7 +4,8 @@
 
 - Select a saved location on the dashboard and activate **View history**. Confirm the URL is `/locations/:id` for that location.
 - Confirm the detail page has a clear, keyboard-operable **Back to dashboard** action and returns without changing saved locations or selection unexpectedly.
-- Open a valid detail URL directly, then an unknown id and an id deleted in another session. The latter two show a clear not-found state with a dashboard route.
+- Direct-load a valid `/locations/:id` in development mode and again from the compiled production host. Both must load the SPA detail page, synchronize the dashboard selection to that location, and leave `/api/*` requests handled by the API rather than the SPA fallback.
+- Open an unknown id and an id deleted in another session. Both show a clear not-found state with a dashboard route.
 
 ## Data and chart semantics
 
@@ -16,8 +17,9 @@
 
 ## Limits and degradation
 
-- With more than 240 readings, confirm default loading presents the newest 240 in chronological order.
-- With more than 1,000 persisted refreshes, confirm the oldest records are pruned while the newest 1,000 remain.
+- With more than 240 seeded readings, confirm default loading selects the newest 240 and presents that selected window in chronological `recorded_at ASC, id ASC` order.
+- Use a controlled local fixture or seeded test-database check with more than 1,000 readings; confirm the oldest records are pruned while the newest 1,000 remain. Do not use repeated live provider requests to validate retention.
+- Use same-`recorded_at` seeded readings to confirm `id` is the deterministic tie-breaker for both newest-window selection and chronological display.
 - Temporarily make the history request fail. Confirm a clear local failure message and retry action, while the dashboard shell/workflows stay usable.
 
 ## Responsive and accessibility checks
