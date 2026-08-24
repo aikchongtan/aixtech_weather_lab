@@ -27,7 +27,7 @@ If the existing frontend test setup supports component tests, add focused covera
 - The detail page renders all three labelled metrics with their units and accessible reading-equivalent content.
 - Null values are exposed as unavailable and charted as gaps, not zero.
 - Loading, empty, retryable error, and not-found states have a usable dashboard return route.
-- A direct existing `/locations/:id` load invokes the existing `select(location.id)` action rather than creating local selected-location state.
+- A direct existing `/locations/:id` load fetches the individual location through typed `getLocation(id)`, then invokes the existing `select(location.id)` action rather than creating local selected-location state.
 
 If no frontend component-test harness exists, do not introduce a broad new test framework solely for this task; cover these items in the manual plan and keep the backend contract thoroughly tested.
 

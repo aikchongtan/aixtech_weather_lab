@@ -18,7 +18,7 @@
 
 ## Decision 3: Make persistence atomic and deletion referentially safe
 
-**Decision**: Enable `PRAGMA foreign_keys = ON` on the SQLite connection. Within exactly one SQLite transaction: update the location's latest snapshot, insert one history row, then delete rows outside the newest 1,000 for that location, ordered by `recorded_at DESC, id DESC`.
+**Decision**: Enable `PRAGMA foreign_keys = ON` on the SQLite connection. Preserve the existing route-facing snapshot-persistence helper as the single write boundary; within that helper, create `recorded_at` and perform exactly one SQLite transaction: update the location's latest snapshot, insert one history row, then delete rows outside the newest 1,000 for that location, ordered by `recorded_at DESC, id DESC`.
 
 **Rationale**: A visible latest snapshot must always have its corresponding history event, and pruning cannot leave an incomplete durable state. `ON DELETE CASCADE` prevents orphaned readings when the current delete flow removes a location.
 
@@ -42,7 +42,7 @@
 
 ## Decision 6: Add routing without duplicating selection state
 
-**Decision**: Use the approved `react-router-dom` package and `BrowserRouter`. The selected dashboard location gets a “View history” navigation action to `/locations/:id`; the detail page resolves its route id and reads history through the API. On direct load of an existing location, it synchronizes the existing store via `select(location.id)` rather than creating parallel selected-location state.
+**Decision**: Use the approved `react-router-dom` package and `BrowserRouter`. The selected dashboard location gets a “View history” navigation action to `/locations/:id`; the detail page uses typed `getLocation(id)` and `getLocationHistory(id, limit?)` API helpers. On direct load of an existing location, it fetches that location first, then synchronizes the existing store via `select(location.id)` rather than creating parallel selected-location state.
 
 **Rationale**: A real URL supports direct navigation, refresh, unknown/deleted handling, and an explicit path back to the dashboard.
 

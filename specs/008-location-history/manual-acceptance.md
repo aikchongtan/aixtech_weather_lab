@@ -4,7 +4,7 @@
 
 - Select a saved location on the dashboard and activate **View history**. Confirm the URL is `/locations/:id` for that location.
 - Confirm the detail page has a clear, keyboard-operable **Back to dashboard** action and returns without changing saved locations or selection unexpectedly.
-- Direct-load a valid `/locations/:id` in development mode and again from the compiled production host. Both must load the SPA detail page, synchronize the dashboard selection to that location, and leave `/api/*` requests handled by the API rather than the SPA fallback.
+- Direct-load a valid `/locations/:id` in development mode and again from the compiled production host. Both must fetch the individual location, load the SPA detail page, synchronize the dashboard selection to that location, and leave `/api/*` requests handled by the API rather than the SPA fallback.
 - Open an unknown id and an id deleted in another session. Both show a clear not-found state with a dashboard route.
 
 ## Data and chart semantics
