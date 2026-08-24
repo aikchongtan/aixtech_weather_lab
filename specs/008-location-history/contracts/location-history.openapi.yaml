@@ -1,0 +1,93 @@
+openapi: 3.1.0
+info:
+  title: Weather Starter Location History API
+  version: 1.0.0
+  description: Narrow application contract for chart history; provider payloads and errors are never exposed.
+paths:
+  /api/locations/{locationId}/history:
+    get:
+      operationId: getLocationHistory
+      summary: Get bounded historical readings for one saved location
+      parameters:
+        - name: locationId
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+        - name: limit
+          in: query
+          required: false
+          description: Defaults to 240. A positive integer above 1000 is capped at 1000.
+          schema:
+            type: integer
+            minimum: 1
+            default: 240
+      responses:
+        '200':
+          description: The newest requested readings, ordered from oldest to newest.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LocationHistory'
+        '400':
+          description: The path identifier or limit is not a positive integer.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientError'
+        '404':
+          description: No saved location exists for the supplied identifier.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundError'
+components:
+  schemas:
+    LocationHistory:
+      type: object
+      required: [location_id, readings]
+      properties:
+        location_id:
+          type: integer
+          minimum: 1
+        readings:
+          type: array
+          maxItems: 1000
+          items:
+            $ref: '#/components/schemas/HistoryReading'
+    HistoryReading:
+      type: object
+      required: [recorded_at, observed_at, temperature, rainfall, humidity]
+      properties:
+        recorded_at:
+          type: string
+          format: date-time
+          description: Application time at which the successful refresh was persisted.
+        observed_at:
+          type: [string, 'null']
+          format: date-time
+          description: Provider observation time when available.
+        temperature:
+          type: [number, 'null']
+          description: Temperature in degrees Celsius.
+        rainfall:
+          type: [number, 'null']
+          description: Rainfall in millimetres.
+        humidity:
+          type: [number, 'null']
+          description: Relative humidity as a percentage.
+    ClientError:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+          example: locationId and limit must be positive integers
+    NotFoundError:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+          example: Location not found
