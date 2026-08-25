@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path';
 import { and, desc, eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/sqlite-proxy';
 import { migrate } from 'drizzle-orm/sqlite-proxy/migrator';
-import { locations, type WeatherSnapshot } from './schema.js';
+import { locations, weatherReadings, type WeatherSnapshot } from './schema.js';
 
 export interface LocationRecord {
   id: number;
@@ -14,7 +14,16 @@ export interface LocationRecord {
   weather: WeatherSnapshot;
 }
 
+export interface WeatherReadingRecord {
+  recorded_at: string;
+  observed_at: string | null;
+  temperature_c: number | null;
+  rainfall_mm: number | null;
+  humidity_percent: number | null;
+}
+
 type LocationRow = typeof locations.$inferSelect;
+type WeatherReadingRow = typeof weatherReadings.$inferSelect;
 
 const defaultWeather: WeatherSnapshot = {
   condition: 'Not refreshed',
@@ -42,7 +51,8 @@ mkdirSync(dirname(databasePath), { recursive: true });
 
 const sqlite = new DatabaseSync(databasePath);
 sqlite.exec('PRAGMA journal_mode = WAL');
-const db = drizzle(sqliteCallback, { schema: { locations } });
+sqlite.exec('PRAGMA foreign_keys = ON');
+const db = drizzle(sqliteCallback, { schema: { locations, weatherReadings } });
 await migrate(
   db,
   async (migrationQueries) => {
@@ -99,14 +109,75 @@ export async function deleteLocation(id: number): Promise<boolean> {
   return Boolean(row);
 }
 
+export async function getLocationHistory(
+  locationId: number,
+  limit: number,
+): Promise<WeatherReadingRecord[] | null> {
+  const location = await db
+    .select({ id: locations.id })
+    .from(locations)
+    .where(eq(locations.id, locationId))
+    .get();
+  if (!location) return null;
+
+  const newestFirst = await db
+    .select()
+    .from(weatherReadings)
+    .where(eq(weatherReadings.locationId, locationId))
+    .orderBy(desc(weatherReadings.recordedAt), desc(weatherReadings.id))
+    .limit(limit)
+    .all();
+
+  return newestFirst.reverse().map(readingRowToRecord);
+}
+
 export async function updateWeather(
   id: number,
   weather: WeatherSnapshot,
 ): Promise<LocationRecord | null> {
   const columns = weatherToColumns(weather);
-  const row = await db.update(locations).set(columns).where(eq(locations.id, id)).returning().get();
+  const recordedAt = new Date().toISOString();
 
-  return row ? rowToRecord(row) : null;
+  sqlite.exec('BEGIN');
+  try {
+    const row = await db.update(locations).set(columns).where(eq(locations.id, id)).returning().get();
+    if (!row) {
+      sqlite.exec('ROLLBACK');
+      return null;
+    }
+
+    await db
+      .insert(weatherReadings)
+      .values({
+        locationId: id,
+        recordedAt,
+        observedAt: weather.observed_at,
+        temperatureC: weather.temperature_c,
+        rainfallMm: weather.rainfall_mm,
+        humidityPercent: weather.humidity_percent,
+      })
+      .run();
+
+    sqlite
+      .prepare(
+        `DELETE FROM weather_readings
+         WHERE location_id = ?
+           AND id NOT IN (
+             SELECT id
+             FROM weather_readings
+             WHERE location_id = ?
+             ORDER BY recorded_at DESC, id DESC
+             LIMIT 1000
+           )`,
+      )
+      .run(id, id);
+
+    sqlite.exec('COMMIT');
+    return rowToRecord(row);
+  } catch (error) {
+    sqlite.exec('ROLLBACK');
+    throw error;
+  }
 }
 
 export function closeDatabase(): void {
@@ -115,7 +186,9 @@ export function closeDatabase(): void {
 
 export async function resetStore(): Promise<void> {
   await db.delete(locations).run();
-  sqlite.prepare("DELETE FROM sqlite_sequence WHERE name = 'locations'").run();
+  sqlite
+    .prepare("DELETE FROM sqlite_sequence WHERE name IN ('locations', 'weather_readings')")
+    .run();
 }
 
 function weatherToColumns(weather: WeatherSnapshot) {
@@ -167,6 +240,16 @@ function rowToRecord(row: LocationRow): LocationRecord {
       forecast_periods: row.forecastPeriods,
       daily_forecast: row.dailyForecast,
     },
+  };
+}
+
+function readingRowToRecord(row: WeatherReadingRow): WeatherReadingRecord {
+  return {
+    recorded_at: row.recordedAt,
+    observed_at: row.observedAt,
+    temperature_c: row.temperatureC,
+    rainfall_mm: row.rainfallMm,
+    humidity_percent: row.humidityPercent,
   };
 }
 

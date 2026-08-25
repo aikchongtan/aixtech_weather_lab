@@ -1,6 +1,7 @@
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { WeatherProviderError, type WeatherSnapshot } from '../weather.js';
@@ -139,5 +140,203 @@ describe('locations API', () => {
 
     const response = await request(unavailableApp).get('/api/forecast-areas').expect(502);
     expect(response.body).toEqual({ detail: 'Forecast areas are unavailable. Please try again.' });
+  });
+
+  it('persists one history reading for every successful create and refresh', async () => {
+    const created = await request(app)
+      .post('/api/locations')
+      .send({ latitude: 1.37, longitude: 103.87 })
+      .expect(201);
+
+    await request(app).post(`/api/locations/${created.body.id}/refresh`).expect(200);
+
+    const response = await request(app)
+      .get(`/api/locations/${created.body.id}/history`)
+      .expect(200);
+
+    expect(response.body).toEqual({
+      location_id: created.body.id,
+      readings: [
+        {
+          recorded_at: expect.any(String),
+          observed_at: weather.observed_at,
+          temperature_c: 29,
+          rainfall_mm: 0,
+          humidity_percent: 80,
+        },
+        {
+          recorded_at: expect.any(String),
+          observed_at: weather.observed_at,
+          temperature_c: 29,
+          rainfall_mm: 0,
+          humidity_percent: 80,
+        },
+      ],
+    });
+  });
+
+  it('retains null readings and rolls back the latest snapshot when history insertion fails', async () => {
+    const created = await request(app)
+      .post('/api/locations')
+      .send({ latitude: 1.38, longitude: 103.88 })
+      .expect(201);
+    const { getLocation, getLocationHistory, updateWeather } = await import('../db.js');
+    const locationId = created.body.id;
+
+    await updateWeather(locationId, {
+      ...weather,
+      observed_at: null,
+      temperature_c: null,
+      rainfall_mm: null,
+      humidity_percent: null,
+    });
+    const nullHistory = await getLocationHistory(locationId, 10);
+    expect(nullHistory?.at(-1)).toMatchObject({
+      observed_at: null,
+      temperature_c: null,
+      rainfall_mm: null,
+      humidity_percent: null,
+    });
+
+    const before = await getLocation(locationId);
+    const beforeHistory = await getLocationHistory(locationId, 10);
+    const directDatabase = new DatabaseSync(process.env.DATABASE_PATH!);
+    directDatabase.exec(
+      `CREATE TRIGGER history_insert_abort
+       BEFORE INSERT ON weather_readings
+       BEGIN SELECT RAISE(ABORT, 'history insert failed'); END;`,
+    );
+
+    try {
+      await expect(updateWeather(locationId, { ...weather, condition: 'Stormy' })).rejects.toThrow(
+        'Failed query',
+      );
+    } finally {
+      directDatabase.exec('DROP TRIGGER history_insert_abort');
+      directDatabase.close();
+    }
+
+    expect(await getLocation(locationId)).toEqual(before);
+    expect(await getLocationHistory(locationId, 10)).toEqual(beforeHistory);
+  });
+
+  it('returns the newest bounded window in deterministic chronological order', async () => {
+    const created = await request(app)
+      .post('/api/locations')
+      .send({ latitude: 1.39, longitude: 103.89 })
+      .expect(201);
+    const { updateWeather } = await import('../db.js');
+
+    for (const temperatureC of [21, 22, 23]) {
+      await updateWeather(created.body.id, { ...weather, temperature_c: temperatureC });
+    }
+
+    const directDatabase = new DatabaseSync(process.env.DATABASE_PATH!);
+    directDatabase
+      .prepare('UPDATE weather_readings SET recorded_at = ? WHERE location_id = ?')
+      .run('2026-05-04T00:00:00.000Z', created.body.id);
+    directDatabase.close();
+
+    const smallLimit = await request(app)
+      .get(`/api/locations/${created.body.id}/history?limit=2`)
+      .expect(200);
+    expect(smallLimit.body.readings.map((reading: { temperature_c: number }) => reading.temperature_c)).toEqual([
+      22,
+      23,
+    ]);
+
+    const allReadings = await request(app)
+      .get(`/api/locations/${created.body.id}/history?limit=10`)
+      .expect(200);
+    expect(allReadings.body.readings.map((reading: { temperature_c: number }) => reading.temperature_c)).toEqual([
+      29,
+      21,
+      22,
+      23,
+    ]);
+  });
+
+  it('caps history at the newest 1000 readings for each location', async () => {
+    const created = await request(app)
+      .post('/api/locations')
+      .send({ latitude: 1.4, longitude: 103.9 })
+      .expect(201);
+    const { updateWeather } = await import('../db.js');
+
+    for (let temperatureC = 0; temperatureC < 1000; temperatureC += 1) {
+      await updateWeather(created.body.id, { ...weather, temperature_c: temperatureC });
+    }
+
+    const defaultResponse = await request(app)
+      .get(`/api/locations/${created.body.id}/history`)
+      .expect(200);
+    expect(defaultResponse.body.readings).toHaveLength(240);
+    expect(defaultResponse.body.readings[0].temperature_c).toBe(760);
+    expect(defaultResponse.body.readings.at(-1).temperature_c).toBe(999);
+
+    const cappedResponse = await request(app)
+      .get(`/api/locations/${created.body.id}/history?limit=1001`)
+      .expect(200);
+    expect(cappedResponse.body.readings).toHaveLength(1000);
+    expect(cappedResponse.body.readings[0].temperature_c).toBe(0);
+    expect(cappedResponse.body.readings.at(-1).temperature_c).toBe(999);
+  });
+
+  it('does not create history when the weather provider refresh fails', async () => {
+    const { createLocationsRouter } = await import('./locations.js');
+    const express = (await import('express')).default;
+    const unavailableApp = express();
+    unavailableApp.use(express.json());
+    unavailableApp.use(
+      '/api',
+      createLocationsRouter({
+        weatherClient: {
+          async getCurrentWeather() {
+            throw new WeatherProviderError('weather provider unavailable');
+          },
+          async getForecastAreas() {
+            return [];
+          },
+        },
+      }),
+    );
+
+    const created = await request(unavailableApp)
+      .post('/api/locations')
+      .send({ latitude: 1.42, longitude: 103.92 })
+      .expect(201);
+    const history = await request(unavailableApp)
+      .get(`/api/locations/${created.body.id}/history`)
+      .expect(200);
+
+    expect(history.body.readings).toEqual([]);
+  });
+
+  it('cascades history deletion and returns approved history errors', async () => {
+    const created = await request(app)
+      .post('/api/locations')
+      .send({ latitude: 1.41, longitude: 103.91 })
+      .expect(201);
+
+    await request(app).get('/api/locations/invalid/history').expect(400, {
+      detail: 'locationId must be a positive integer',
+    });
+    await request(app).get(`/api/locations/${created.body.id}/history?limit=0`).expect(400, {
+      detail: 'limit must be a positive integer',
+    });
+    await request(app).get('/api/locations/99999/history').expect(404, {
+      detail: 'Location not found',
+    });
+
+    await request(app).delete(`/api/locations/${created.body.id}`).expect(204);
+    const directDatabase = new DatabaseSync(process.env.DATABASE_PATH!);
+    const readingCount = directDatabase
+      .prepare('SELECT COUNT(*) AS count FROM weather_readings WHERE location_id = ?')
+      .get(created.body.id) as { count: number };
+    directDatabase.close();
+    expect(readingCount.count).toBe(0);
+    await request(app).get(`/api/locations/${created.body.id}/history`).expect(404, {
+      detail: 'Location not found',
+    });
   });
 });

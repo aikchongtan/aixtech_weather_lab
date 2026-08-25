@@ -1,4 +1,11 @@
-import { integer, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import {
+  index,
+  integer,
+  real,
+  sqliteTable,
+  text,
+  uniqueIndex,
+} from 'drizzle-orm/sqlite-core';
 
 export interface WeatherSnapshot {
   condition: string | null;
@@ -61,5 +68,27 @@ export const locations = sqliteTable(
   },
   (table) => [
     uniqueIndex('locations_latitude_longitude_unique').on(table.latitude, table.longitude),
+  ],
+);
+
+export const weatherReadings = sqliteTable(
+  'weather_readings',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    locationId: integer('location_id')
+      .notNull()
+      .references(() => locations.id, { onDelete: 'cascade' }),
+    recordedAt: text('recorded_at').notNull(),
+    observedAt: text('observed_at'),
+    temperatureC: real('temperature_c'),
+    rainfallMm: real('rainfall_mm'),
+    humidityPercent: real('humidity_percent'),
+  },
+  (table) => [
+    index('weather_readings_location_recorded_id_index').on(
+      table.locationId,
+      table.recordedAt,
+      table.id,
+    ),
   ],
 );

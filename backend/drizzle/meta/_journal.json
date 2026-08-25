@@ -8,6 +8,13 @@
       "when": 1777880810712,
       "tag": "0000_dusty_gladiator",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1787581807581,
+      "tag": "0001_hard_silk_fever",
+      "breakpoints": true
     }
   ]
 }

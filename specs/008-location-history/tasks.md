@@ -22,9 +22,9 @@ description: "Dependency-ordered implementation tasks for Task 8: Location histo
 
 **Purpose**: Record the protected baseline and establish the approved implementation inputs.
 
-- [ ] T001 Record the current verbose Vitest inventory (exactly 12 tests: 5 route and 7 weather-client) before changes; preserve it in the implementation validation notes using `backend/src/routes/locations.test.ts` and `backend/src/weather.test.ts`.
+- [X] T001 Record the current verbose Vitest inventory (exactly 12 tests: 5 route and 7 weather-client) before changes; preserve it in the implementation validation notes using `backend/src/routes/locations.test.ts` and `backend/src/weather.test.ts`.
 - [ ] T002 [P] Add only the approved frontend dependencies, `react-router-dom` and `recharts`, in `frontend/package.json` and the repository `package-lock.json`; do not add any other dependency.
-- [ ] T003 [P] Inspect direct `/locations/:id` handling in development and the compiled production host using `frontend/vite.config.ts`, `frontend/src/main.tsx`, `backend/src/server.ts`, and `README.md`; document whether a non-`/api/*` SPA fallback is necessary before changing hosting behavior.
+- [X] T003 [P] Inspect direct `/locations/:id` handling in development and the compiled production host using `frontend/vite.config.ts`, `frontend/src/main.tsx`, `backend/src/server.ts`, and `README.md`; document whether a non-`/api/*` SPA fallback is necessary before changing hosting behavior.
 
 ---
 
@@ -34,13 +34,13 @@ description: "Dependency-ordered implementation tasks for Task 8: Location histo
 
 **⚠️ CRITICAL**: Complete this phase before wiring the detail route or chart UI.
 
-- [ ] T004 Add the `weather_readings` Drizzle table in `backend/src/schema.ts` with `id`, cascading `location_id`, `recorded_at`, nullable `observed_at`, nullable `temperature_c`, nullable `rainfall_mm`, and nullable `humidity_percent`; define the composite `(location_id, recorded_at, id)` history-query index.
-- [ ] T005 Generate and review the additive Drizzle migration in `backend/drizzle/` and its metadata in `backend/drizzle/meta/`; it must create only the approved history table/index/foreign key and must not alter unrelated schema.
-- [ ] T006 Enable SQLite foreign-key enforcement in `backend/src/db.ts` and add database helpers for reading bounded location history.
-- [ ] T007 Preserve the existing snapshot-persistence helper in `backend/src/db.ts` as the single route-facing write boundary. Make that helper internally create `recorded_at`, atomically update the latest location snapshot, insert exactly one `weather_readings` row, and prune to the newest 1,000 rows using `recorded_at DESC, id DESC`; failed writes must roll back all three operations.
-- [ ] T008 Add `GET /api/locations/:locationId/history` in `backend/src/routes/locations.ts` per `specs/008-location-history/contracts/location-history.openapi.yaml`: default `limit=240`, cap valid oversized limits at 1,000, return invalid/non-positive limits as HTTP 400 `{ "detail": "..." }`, select by `recorded_at DESC, id DESC`, and return the selected window by `recorded_at ASC, id ASC` without provider payloads.
-- [ ] T009 Extend `backend/src/routes/locations.test.ts` with additive persistence/route tests for atomic successful refreshes, failed refreshes with no history row, duplicate provider timestamps/values, retained null metrics, deletion cascade, and transaction rollback.
-- [ ] T010 Extend `backend/src/routes/locations.test.ts` with deterministic history-query tests: default 240, cap at 1,000, a small-limit newest-window fixture, same-`recorded_at` `id` tie-breaking, oldest-first return order, HTTP 400 `{ "detail": "..." }`, and unknown/deleted location results.
+- [X] T004 Add the `weather_readings` Drizzle table in `backend/src/schema.ts` with `id`, cascading `location_id`, `recorded_at`, nullable `observed_at`, nullable `temperature_c`, nullable `rainfall_mm`, and nullable `humidity_percent`; define the composite `(location_id, recorded_at, id)` history-query index.
+- [X] T005 Generate and review the additive Drizzle migration in `backend/drizzle/` and its metadata in `backend/drizzle/meta/`; it must create only the approved history table/index/foreign key and must not alter unrelated schema.
+- [X] T006 Enable SQLite foreign-key enforcement in `backend/src/db.ts` and add database helpers for reading bounded location history.
+- [X] T007 Preserve the existing snapshot-persistence helper in `backend/src/db.ts` as the single route-facing write boundary. Make that helper internally create `recorded_at`, atomically update the latest location snapshot, insert exactly one `weather_readings` row, and prune to the newest 1,000 rows using `recorded_at DESC, id DESC`; failed writes must roll back all three operations.
+- [X] T008 Add `GET /api/locations/:locationId/history` in `backend/src/routes/locations.ts` per `specs/008-location-history/contracts/location-history.openapi.yaml`: default `limit=240`, cap valid oversized limits at 1,000, return invalid/non-positive limits as HTTP 400 `{ "detail": "..." }`, select by `recorded_at DESC, id DESC`, and return the selected window by `recorded_at ASC, id ASC` without provider payloads.
+- [X] T009 Extend `backend/src/routes/locations.test.ts` with additive persistence/route tests for atomic successful refreshes, failed refreshes with no history row, duplicate provider timestamps/values, retained null metrics, deletion cascade, and transaction rollback.
+- [X] T010 Extend `backend/src/routes/locations.test.ts` with deterministic history-query tests: default 240, cap at 1,000, a small-limit newest-window fixture, same-`recorded_at` `id` tie-breaking, oldest-first return order, HTTP 400 `{ "detail": "..." }`, and unknown/deleted location results.
 
 **Checkpoint**: The dashboard’s current snapshot and durable history are consistent; the history contract is independently testable before any chart UI exists.
 
@@ -52,9 +52,9 @@ description: "Dependency-ordered implementation tasks for Task 8: Location histo
 
 **Independent Test**: Create/refresh a location multiple times with duplicate provider timestamps and null optional metrics; verify distinct chronological readings, latest snapshot correctness, retention, and no history record after a failed refresh.
 
-- [ ] T011 [US2] Verify the existing create and refresh flows in `backend/src/routes/locations.ts` continue to call the unchanged route-facing snapshot-persistence helper and each successful flow persists exactly one history row without changing their existing success/failure API behavior.
-- [ ] T012 [US2] Run and expand the focused assertions in `backend/src/routes/locations.test.ts` so location creation and refresh each prove that one snapshot and one history reading persist together.
-- [ ] T013 [US2] Run `npx vitest list --reporter=verbose` and `npm test`; confirm the original 12-test inventory remains present and all Task 8 tests are additive.
+- [X] T011 [US2] Verify the existing create and refresh flows in `backend/src/routes/locations.ts` continue to call the unchanged route-facing snapshot-persistence helper and each successful flow persists exactly one history row without changing their existing success/failure API behavior.
+- [X] T012 [US2] Run and expand the focused assertions in `backend/src/routes/locations.test.ts` so location creation and refresh each prove that one snapshot and one history reading persist together.
+- [X] T013 [US2] Run `npx vitest list --reporter=verbose` and `npm test`; confirm the original 12-test inventory remains present and all Task 8 tests are additive.
 
 **Checkpoint**: User Story 2 is independently complete; no frontend route or chart is required to prove persistence integrity.
 
