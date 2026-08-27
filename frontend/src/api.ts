@@ -1,4 +1,4 @@
-import type { CreateLocationPayload, ForecastArea, Location } from './types';
+import type { CreateLocationPayload, ForecastArea, Location, LocationHistory } from './types';
 
 const API_BASE = '/api';
 
@@ -39,6 +39,31 @@ export const refreshLocation = (id: number) =>
 
 export const deleteLocation = (id: number) =>
   request<void>(`/locations/${id}`, { method: 'DELETE' });
+
+export async function getLocation(id: number): Promise<Location | null> {
+  const response = await fetch(`${API_BASE}/locations/${id}`, {
+    headers: { 'Content-Type': 'application/json' },
+  });
+  if (response.status === 404) return null;
+  if (!response.ok) {
+    const body = (await response.json().catch(() => ({}))) as ApiError;
+    throw new Error(body.detail || 'Request failed');
+  }
+  return (await response.json()) as Location;
+}
+
+export async function getLocationHistory(id: number, limit?: number): Promise<LocationHistory | null> {
+  const query = limit !== undefined ? `?limit=${encodeURIComponent(limit)}` : '';
+  const response = await fetch(`${API_BASE}/locations/${id}/history${query}`, {
+    headers: { 'Content-Type': 'application/json' },
+  });
+  if (response.status === 404) return null;
+  if (!response.ok) {
+    const body = (await response.json().catch(() => ({}))) as ApiError;
+    throw new Error(body.detail || 'Request failed');
+  }
+  return (await response.json()) as LocationHistory;
+}
 
 export function logInteraction(event: string, metadata: object = {}) {
   const page = typeof window === 'undefined' ? undefined : window.location.pathname;

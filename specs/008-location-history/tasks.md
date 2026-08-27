@@ -73,9 +73,9 @@ description: "Dependency-ordered implementation tasks for Task 8: Location histo
 
 ### Implementation for User Story 1
 
-- [ ] T016 [US1] Add typed `getLocation(id)` and response-validating `getLocationHistory(id, limit?)` helpers plus their DTO types in `frontend/src/api.ts` and `frontend/src/types.ts`; the history helper exposes only `recorded_at`, `observed_at`, `temperature_c`, `rainfall_mm`, and `humidity_percent`.
-- [ ] T017 [US1] Add `BrowserRouter` and dashboard/detail routes in `frontend/src/main.tsx` and `frontend/src/App.tsx`; keep the dashboard as the existing shared shell.
-- [ ] T018 [US1] Add the selected-dashboard View history action in `frontend/src/components/Hero.tsx`, navigating to `/locations/:id` without creating duplicate selected-location state.
+- [X] T016 [US1] Add typed `getLocation(id)` and response-validating `getLocationHistory(id, limit?)` helpers plus their DTO types in `frontend/src/api.ts` and `frontend/src/types.ts`; the history helper exposes only `recorded_at`, `observed_at`, `temperature_c`, `rainfall_mm`, and `humidity_percent`.
+- [X] T017 [US1] Add `BrowserRouter` and dashboard/detail routes in `frontend/src/main.tsx` and `frontend/src/App.tsx`; keep the dashboard as the existing shared shell.
+- [X] T018 [US1] Add the selected-dashboard View history action in `frontend/src/components/Hero.tsx`, navigating to `/locations/:id` without creating duplicate selected-location state.
 - [ ] T019 [P] [US1] Create reusable accessible metric-chart and reading-table components under `frontend/src/components/` using Recharts: visible metric/unit labels, non-colour-only series identification, null gaps, and timestamp/value equivalents that do not require hover or a pointer.
 - [ ] T020 [US1] Create the location-detail page under `frontend/src/pages/` (or the established component location) to load history, render the three chart sections, and provide explicit loading, empty-history, retryable request-failure, and dashboard return states.
 - [ ] T021 [US1] Make the detail page responsive at narrow widths in the new detail/chart component files; ensure charts and reading equivalents remain readable without horizontal page overflow.

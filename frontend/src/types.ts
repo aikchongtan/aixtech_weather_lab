@@ -69,3 +69,16 @@ export interface StoreValue {
 export interface ProviderProps {
   children: ReactNode;
 }
+
+export interface WeatherReading {
+  recorded_at: string;
+  observed_at: string | null;
+  temperature_c: number | null;
+  rainfall_mm: number | null;
+  humidity_percent: number | null;
+}
+
+export interface LocationHistory {
+  location_id: number;
+  readings: WeatherReading[];
+}
