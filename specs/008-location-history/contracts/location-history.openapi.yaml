@@ -86,8 +86,8 @@ components:
           example: limit must be a positive integer
     NotFoundError:
       type: object
-      required: [error]
+      required: [detail]
       properties:
-        error:
+        detail:
           type: string
           example: Location not found
