@@ -4,6 +4,7 @@ import {
   createLocation,
   deleteLocation,
   getLocation,
+  getLocationHistory,
   listLocations,
   updateWeather,
 } from '../db.js';
@@ -100,6 +101,33 @@ export function createLocationsRouter(options: LocationsRouterOptions = {}): Rou
         return;
       }
       response.json(location);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.get('/locations/:locationId/history', async (request, response, next) => {
+    try {
+      const locationId = Number(request.params.locationId);
+      if (!Number.isInteger(locationId) || locationId < 1) {
+        response.status(400).json({ detail: 'locationId must be a positive integer' });
+        return;
+      }
+
+      const requestedLimit = request.query.limit;
+      const parsedLimit = requestedLimit === undefined ? 240 : Number(requestedLimit);
+      if (!Number.isInteger(parsedLimit) || parsedLimit < 1) {
+        response.status(400).json({ detail: 'limit must be a positive integer' });
+        return;
+      }
+
+      const readings = await getLocationHistory(locationId, Math.min(parsedLimit, 1000));
+      if (!readings) {
+        response.status(404).json({ detail: 'Location not found' });
+        return;
+      }
+
+      response.json({ location_id: locationId, readings });
     } catch (error) {
       next(error);
     }
