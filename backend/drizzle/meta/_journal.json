@@ -15,6 +15,13 @@
       "when": 1787581807581,
       "tag": "0001_hard_silk_fever",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1787819958107,
+      "tag": "0002_petite_shadow_king",
+      "breakpoints": true
     }
   ]
 }
