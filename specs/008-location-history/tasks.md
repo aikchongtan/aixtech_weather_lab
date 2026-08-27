@@ -23,7 +23,7 @@ description: "Dependency-ordered implementation tasks for Task 8: Location histo
 **Purpose**: Record the protected baseline and establish the approved implementation inputs.
 
 - [X] T001 Record the current verbose Vitest inventory (exactly 12 tests: 5 route and 7 weather-client) before changes; preserve it in the implementation validation notes using `backend/src/routes/locations.test.ts` and `backend/src/weather.test.ts`.
-- [ ] T002 [P] Add only the approved frontend dependencies, `react-router-dom` and `recharts`, in `frontend/package.json` and the repository `package-lock.json`; do not add any other dependency.
+- [X] T002 [P] Add only the approved frontend dependencies, `react-router-dom` and `recharts`, in `frontend/package.json` and the repository `package-lock.json`; do not add any other dependency.
 - [X] T003 [P] Inspect direct `/locations/:id` handling in development and the compiled production host using `frontend/vite.config.ts`, `frontend/src/main.tsx`, `backend/src/server.ts`, and `README.md`; document whether a non-`/api/*` SPA fallback is necessary before changing hosting behavior.
 
 ---
@@ -68,8 +68,8 @@ description: "Dependency-ordered implementation tasks for Task 8: Location histo
 
 ### Tests for User Story 1
 
-- [ ] T014 [P] [US1] Add API-client/DTO coverage in the existing frontend test setup, if available, for the narrow history response in `frontend/src/api.ts` and `frontend/src/types.ts`; do not introduce a separate test framework if none exists.
-- [ ] T015 [P] [US1] Add component/route coverage in the existing frontend test setup, if available, for View history navigation, explicit units, null gaps/unavailable text, loading, empty, and retryable failure states in the new detail components under `frontend/src/`.
+- [X] T014 [P] [US1] Add API-client/DTO coverage in the existing frontend test setup, if available, for the narrow history response in `frontend/src/api.ts` and `frontend/src/types.ts`; do not introduce a separate test framework if none exists.
+- [X] T015 [P] [US1] Add component/route coverage in the existing frontend test setup, if available, for View history navigation, explicit units, null gaps/unavailable text, loading, empty, and retryable failure states in the new detail components under `frontend/src/`.
 
 ### Implementation for User Story 1
 
@@ -90,10 +90,10 @@ description: "Dependency-ordered implementation tasks for Task 8: Location histo
 
 **Independent Test**: Direct-load a valid `/locations/:id` in development and compiled production, verify `select(location.id)` synchronizes the existing store, then test unknown/deleted URLs and Back to dashboard.
 
-- [ ] T022 [US3] In the detail route/page under `frontend/src/pages/` (or the established component location), use `getLocation(id)` on a direct valid route load, then call the existing store `select(location.id)`; do not introduce local selected-location state or resolve the route only from an already-loaded location list.
-- [ ] T023 [US3] Add clear unknown/deleted not-found and keyboard-operable Back to dashboard states in the detail route/page under `frontend/src/pages/`.
-- [ ] T024 [US3] Verify direct `/locations/:id` behavior in development and the compiled production host. If needed, make the smallest change in `backend/src/server.ts` or hosting configuration to serve the SPA shell only for non-`/api/*` navigation requests; retain API routing precedence.
-- [ ] T025 [US3] Add frontend route coverage in the existing test setup, if available, for direct valid-url store synchronization and unknown/deleted detail URLs; otherwise record these as required checks in `specs/008-location-history/manual-acceptance.md` without adding a new framework.
+- [X] T022 [US3] In the detail route/page under `frontend/src/pages/` (or the established component location), use `getLocation(id)` on a direct valid route load, then call the existing store `select(location.id)`; do not introduce local selected-location state or resolve the route only from an already-loaded location list.
+- [X] T023 [US3] Add clear unknown/deleted not-found and keyboard-operable Back to dashboard states in the detail route/page under `frontend/src/pages/`.
+- [X] T024 [US3] Verify direct `/locations/:id` behavior in development and the compiled production host. If needed, make the smallest change in `backend/src/server.ts` or hosting configuration to serve the SPA shell only for non-`/api/*` navigation requests; retain API routing precedence.
+- [X] T025 [US3] Add frontend route coverage in the existing test setup, if available, for direct valid-url store synchronization and unknown/deleted detail URLs; otherwise record these as required checks in `specs/008-location-history/manual-acceptance.md` without adding a new framework.
 
 **Checkpoint**: Valid and invalid direct detail URLs are safe, API routes are not intercepted, and users can return to the dashboard without disrupting existing state.
 
@@ -103,10 +103,10 @@ description: "Dependency-ordered implementation tasks for Task 8: Location histo
 
 **Purpose**: Validate the full feature without regressions to previously completed tasks.
 
-- [ ] T026 [P] Verify the exact response shape and privacy boundary against `specs/008-location-history/contracts/location-history.openapi.yaml`; confirm no provider payloads, provider errors, station identifiers, or current-only values enter the history API.
-- [ ] T027 [P] Run the full manual acceptance plan in `specs/008-location-history/manual-acceptance.md`, including controlled seeded retention checks, same-time ordering, keyboard/screen-reader review, narrow viewport layout, development/production direct routes, and the dashboard regression sweep.
-- [ ] T028 Run `npx vitest list --reporter=verbose`, `npm test`, `npm run build`, `npm run doctor` (with the development server if required), and `git diff --check`; report the retained baseline and additive test count.
-- [ ] T029 Inspect the final diff for scope: only approved dependencies, history schema/migration, persistence/route/UI/tests, and necessary SPA fallback behavior may change; do not commit or push.
+- [X] T026 [P] Verify the exact response shape and privacy boundary against `specs/008-location-history/contracts/location-history.openapi.yaml`; confirm no provider payloads, provider errors, station identifiers, or current-only values enter the history API.
+- [X] T027 [P] Run the full manual acceptance plan in `specs/008-location-history/manual-acceptance.md`, including controlled seeded retention checks, same-time ordering, keyboard/screen-reader review, narrow viewport layout, development/production direct routes, and the dashboard regression sweep.
+- [X] T028 Run `npx vitest list --reporter=verbose`, `npm test`, `npm run build`, `npm run doctor` (with the development server if required), and `git diff --check`; report the retained baseline and additive test count.
+- [X] T029 Inspect the final diff for scope: only approved dependencies, history schema/migration, persistence/route/UI/tests, and necessary SPA fallback behavior may change; do not commit or push.
 
 ## Dependencies and execution order
 
