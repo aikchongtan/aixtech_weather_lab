@@ -339,4 +339,74 @@ describe('locations API', () => {
       detail: 'Location not found',
     });
   });
+
+  it('reorders non-primary locations and enforces reorder request outcomes', async () => {
+    const { resetStore } = await import('../db.js');
+    await resetStore();
+
+    const primary = (
+      await request(app).post('/api/locations').send({ latitude: 1.43, longitude: 103.93 }).expect(201)
+    ).body;
+    const firstNonPrimary = (
+      await request(app).post('/api/locations').send({ latitude: 1.44, longitude: 103.94 }).expect(201)
+    ).body;
+    const secondNonPrimary = (
+      await request(app).post('/api/locations').send({ latitude: 1.45, longitude: 103.95 }).expect(201)
+    ).body;
+
+    const movedUp = await request(app)
+      .patch(`/api/locations/${secondNonPrimary.id}/order`)
+      .send({ direction: 'up' })
+      .expect(200);
+    expect(movedUp.body.locations.map((location: { id: number }) => location.id)).toEqual([
+      primary.id,
+      secondNonPrimary.id,
+      firstNonPrimary.id,
+    ]);
+    expect(
+      movedUp.body.locations.every(
+        (location: { is_primary: boolean }) => typeof location.is_primary === 'boolean',
+      ),
+    ).toBe(true);
+
+    const persistedOrder = await request(app).get('/api/locations').expect(200);
+    expect(persistedOrder.body.locations.map((location: { id: number }) => location.id)).toEqual([
+      primary.id,
+      secondNonPrimary.id,
+      firstNonPrimary.id,
+    ]);
+
+    const movedDown = await request(app)
+      .patch(`/api/locations/${secondNonPrimary.id}/order`)
+      .send({ direction: 'down' })
+      .expect(200);
+    expect(movedDown.body.locations.map((location: { id: number }) => location.id)).toEqual([
+      primary.id,
+      firstNonPrimary.id,
+      secondNonPrimary.id,
+    ]);
+    expect(
+      movedDown.body.locations.every(
+        (location: { is_primary: boolean }) => typeof location.is_primary === 'boolean',
+      ),
+    ).toBe(true);
+
+    await request(app)
+      .patch(`/api/locations/${firstNonPrimary.id}/order`)
+      .send({ direction: 'up' })
+      .expect(409);
+    await request(app)
+      .patch(`/api/locations/${secondNonPrimary.id}/order`)
+      .send({ direction: 'down' })
+      .expect(409);
+    await request(app).patch(`/api/locations/${primary.id}/order`).send({ direction: 'down' }).expect(409);
+    await request(app).patch('/api/locations/999999/order').send({ direction: 'up' }).expect(404);
+    await request(app)
+      .patch(`/api/locations/${firstNonPrimary.id}/order`)
+      .send({ direction: 'sideways' })
+      .expect(400, { detail: 'direction must be "up" or "down"' });
+    await request(app).patch(`/api/locations/${firstNonPrimary.id}/order`).send({}).expect(400, {
+      detail: 'direction must be "up" or "down"',
+    });
+  });
 });

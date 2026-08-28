@@ -114,6 +114,66 @@ export async function getLocation(id: number): Promise<LocationRecord | null> {
   return row ? rowToRecord(row) : null;
 }
 
+export type ReorderLocationResult =
+  | { outcome: 'not_found' }
+  | { outcome: 'primary' }
+  | { outcome: 'boundary' }
+  | { outcome: 'success'; locations: LocationRecord[] };
+
+export async function reorderLocation(
+  id: number,
+  direction: 'up' | 'down',
+): Promise<ReorderLocationResult> {
+  sqlite.exec('BEGIN');
+  try {
+    const target = await db.select().from(locations).where(eq(locations.id, id)).get();
+    if (!target) {
+      sqlite.exec('ROLLBACK');
+      return { outcome: 'not_found' };
+    }
+    if (target.isPrimary !== 0) {
+      sqlite.exec('ROLLBACK');
+      return { outcome: 'primary' };
+    }
+
+    const nonPrimaryLocations = await db
+      .select()
+      .from(locations)
+      .where(eq(locations.isPrimary, 0))
+      .orderBy(asc(locations.sortOrder))
+      .all();
+    const targetIndex = nonPrimaryLocations.findIndex((location) => location.id === id);
+    const neighbourIndex = direction === 'up' ? targetIndex - 1 : targetIndex + 1;
+    if (neighbourIndex < 0 || neighbourIndex >= nonPrimaryLocations.length) {
+      sqlite.exec('ROLLBACK');
+      return { outcome: 'boundary' };
+    }
+
+    const neighbour = nonPrimaryLocations[neighbourIndex]!;
+    await db
+      .update(locations)
+      .set({ sortOrder: neighbour.sortOrder })
+      .where(eq(locations.id, target.id))
+      .run();
+    await db
+      .update(locations)
+      .set({ sortOrder: target.sortOrder })
+      .where(eq(locations.id, neighbour.id))
+      .run();
+
+    const updatedLocations = await db
+      .select()
+      .from(locations)
+      .orderBy(desc(locations.isPrimary), asc(locations.sortOrder))
+      .all();
+    sqlite.exec('COMMIT');
+    return { outcome: 'success', locations: updatedLocations.map(rowToRecord) };
+  } catch (error) {
+    sqlite.exec('ROLLBACK');
+    throw error;
+  }
+}
+
 export async function deleteLocation(id: number): Promise<boolean> {
   sqlite.exec('BEGIN');
   try {
