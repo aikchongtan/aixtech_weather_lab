@@ -38,6 +38,7 @@ export interface Location {
   latitude: number;
   longitude: number;
   created_at: string;
+  is_primary: boolean;
   weather: WeatherSnapshot;
 }
 
