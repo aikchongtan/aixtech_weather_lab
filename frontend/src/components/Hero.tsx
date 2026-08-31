@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
+import { useRef, type TouchEvent } from 'react';
 import { useStore, useSelectedLocation } from '../state/store';
-import { LocationIcon, RefreshIcon } from './icons';
+import { ChevronLeftIcon, ChevronRightIcon, LocationIcon, RefreshIcon } from './icons';
 import { HourlyStrip } from './HourlyStrip';
 import { TenDayForecast } from './TenDayForecast';
 import { TileGrid } from './Tiles';
@@ -20,8 +21,9 @@ function conditionAccent(condition: string): string {
 }
 
 export function Hero() {
-  const { locations, refresh, refreshingId } = useStore();
+  const { locations, refresh, refreshingId, select } = useStore();
   const selected = useSelectedLocation();
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
 
   if (!selected) {
     return (
@@ -49,11 +51,74 @@ export function Hero() {
   const temperature = formatTemperature(selected.weather?.temperature_c);
   const high = formatTemperature(selected.weather?.forecast_high_c);
   const low = formatTemperature(selected.weather?.forecast_low_c);
+  const selectedIndex = Math.max(0, locations.findIndex((location) => location.id === selected.id));
+  const previousLocation = locations[(selectedIndex - 1 + locations.length) % locations.length];
+  const nextLocation = locations[(selectedIndex + 1) % locations.length];
+  const canNavigate = locations.length >= 2;
+  const locationName = (location: (typeof locations)[number]) =>
+    location.weather.area || `${location.latitude.toFixed(3)}, ${location.longitude.toFixed(3)}`;
+
+  const navigate = (direction: 'previous' | 'next') => {
+    if (!canNavigate) return;
+    const nextIndex =
+      direction === 'next'
+        ? (selectedIndex + 1) % locations.length
+        : (selectedIndex - 1 + locations.length) % locations.length;
+    select(locations[nextIndex]!.id);
+  };
+
+  const onTouchStart = (event: TouchEvent<HTMLElement>) => {
+    if (!(event.target instanceof Element) || event.target.closest('button, a, input, select, textarea, [role="button"]')) {
+      touchStart.current = null;
+      return;
+    }
+    const touch = event.touches[0];
+    if (touch) touchStart.current = { x: touch.clientX, y: touch.clientY };
+  };
+
+  const onTouchEnd = (event: TouchEvent<HTMLElement>) => {
+    const start = touchStart.current;
+    touchStart.current = null;
+    const touch = event.changedTouches[0];
+    if (!start || !touch || !canNavigate) return;
+
+    const deltaX = touch.clientX - start.x;
+    const deltaY = touch.clientY - start.y;
+    if (Math.abs(deltaX) > Math.abs(deltaY) * 2 && Math.abs(deltaX) > 40) {
+      navigate(deltaX < 0 ? 'next' : 'previous');
+    }
+  };
 
   return (
-    <main className="min-w-0 flex-1 overflow-y-auto">
+    <main
+      className="min-w-0 flex-1 overflow-y-auto"
+      onTouchStart={onTouchStart}
+      onTouchEnd={onTouchEnd}
+    >
       <div className="mx-auto flex max-w-6xl flex-col gap-4 p-4 sm:p-6 lg:p-8">
         <header className={`rounded-3xl border px-4 pb-5 pt-7 text-center shadow-xl shadow-sky-950/10 backdrop-blur-xl sm:px-8 ${conditionAccent(condition)}`}>
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={() => navigate('previous')}
+              aria-label={canNavigate ? `Previous location: ${locationName(previousLocation!)}` : 'Previous location'}
+              aria-disabled={!canNavigate}
+              className="rounded-full border border-white/15 bg-white/[0.08] p-2 text-white/85 hover:bg-white/[0.14] aria-disabled:cursor-not-allowed aria-disabled:opacity-50"
+            >
+              <ChevronLeftIcon className="h-4 w-4" />
+              <span className="sr-only">Previous location</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('next')}
+              aria-label={canNavigate ? `Next location: ${locationName(nextLocation!)}` : 'Next location'}
+              aria-disabled={!canNavigate}
+              className="rounded-full border border-white/15 bg-white/[0.08] p-2 text-white/85 hover:bg-white/[0.14] aria-disabled:cursor-not-allowed aria-disabled:opacity-50"
+            >
+              <ChevronRightIcon className="h-4 w-4" />
+              <span className="sr-only">Next location</span>
+            </button>
+          </div>
           {isHome && (
             <div className="mb-2 flex items-center gap-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/70">
               <LocationIcon className="h-3 w-3" />
