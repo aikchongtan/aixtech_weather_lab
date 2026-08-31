@@ -174,6 +174,34 @@ export async function reorderLocation(
   }
 }
 
+export type SetPrimaryLocationResult =
+  | { outcome: 'not_found' }
+  | { outcome: 'success'; locations: LocationRecord[] };
+
+export async function setPrimaryLocation(id: number): Promise<SetPrimaryLocationResult> {
+  sqlite.exec('BEGIN');
+  try {
+    const target = await db.select().from(locations).where(eq(locations.id, id)).get();
+    if (!target) {
+      sqlite.exec('ROLLBACK');
+      return { outcome: 'not_found' };
+    }
+
+    await db.update(locations).set({ isPrimary: 0 }).run();
+    await db.update(locations).set({ isPrimary: 1 }).where(eq(locations.id, target.id)).run();
+    const updatedLocations = await db
+      .select()
+      .from(locations)
+      .orderBy(desc(locations.isPrimary), asc(locations.sortOrder))
+      .all();
+    sqlite.exec('COMMIT');
+    return { outcome: 'success', locations: updatedLocations.map(rowToRecord) };
+  } catch (error) {
+    sqlite.exec('ROLLBACK');
+    throw error;
+  }
+}
+
 export async function deleteLocation(id: number): Promise<boolean> {
   sqlite.exec('BEGIN');
   try {

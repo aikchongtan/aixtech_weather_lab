@@ -7,6 +7,7 @@ import {
   getLocationHistory,
   listLocations,
   reorderLocation,
+  setPrimaryLocation,
   updateWeather,
 } from '../db.js';
 import {
@@ -159,6 +160,26 @@ export function createLocationsRouter(options: LocationsRouterOptions = {}): Rou
       }
       if (result.outcome === 'boundary') {
         response.status(409).json({ detail: 'Location is already at the list boundary' });
+        return;
+      }
+
+      response.json({ locations: result.locations });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.post('/locations/:locationId/primary', async (request, response, next) => {
+    try {
+      const locationId = Number(request.params.locationId);
+      if (!Number.isInteger(locationId) || locationId < 1) {
+        response.status(400).json({ detail: 'locationId must be a positive integer' });
+        return;
+      }
+
+      const result = await setPrimaryLocation(locationId);
+      if (result.outcome === 'not_found') {
+        response.status(404).json({ detail: 'Location not found' });
         return;
       }
 
