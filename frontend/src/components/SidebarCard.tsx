@@ -19,10 +19,12 @@ export function SidebarCard({
   isFirstNonPrimary,
   isLast,
 }: SidebarCardProps) {
-  const { selectedId, select, remove, reorder } = useStore();
+  const { selectedId, select, remove, reorder, setPrimary } = useStore();
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [reorderError, setReorderError] = useState<string | null>(null);
+  const [primaryError, setPrimaryError] = useState<string | null>(null);
+  const [primaryAnnouncement, setPrimaryAnnouncement] = useState('');
   const isSelected = selectedId === location.id;
   const observed = formatTime(location.weather.observed_at);
   const area =
@@ -70,6 +72,17 @@ export function SidebarCard({
       setReorderError(err instanceof Error ? err.message : 'Could not reorder location');
     }
   };
+  const onSetPrimary = async (event: MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    setPrimaryError(null);
+    setPrimaryAnnouncement('');
+    try {
+      await setPrimary(location.id);
+      setPrimaryAnnouncement(`${area} is now primary`);
+    } catch (err) {
+      setPrimaryError(err instanceof Error ? err.message : 'Could not set primary location');
+    }
+  };
   return (
     <div
       role="button"
@@ -83,10 +96,15 @@ export function SidebarCard({
           : 'border-white/10 bg-slate-950/20 hover:border-white/20 hover:bg-white/[0.12]'
       }`}
     >
-      <div className="flex items-start justify-between gap-3 px-4 pt-3">
+      <div className="px-4 pt-3">
         <div className="min-w-0">
-          <div className="truncate text-lg font-semibold leading-tight text-white">{area}</div>
+          <div className="break-words text-lg font-semibold leading-tight text-white">{area}</div>
           <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-white/70">
+            {location.is_primary && (
+              <span className="rounded-full border border-sky-200/40 bg-sky-200/15 px-1.5 py-0.5 font-medium text-sky-50">
+                Primary
+              </span>
+            )}
             {isHome ? (
               <>
                 <span>My Location</span>
@@ -101,42 +119,55 @@ export function SidebarCard({
             )}
           </div>
         </div>
-        <div className="flex items-start gap-2">
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
           <div className="text-3xl font-light tabular-nums text-white/90">{temperature}C</div>
-          {!location.is_primary && !isFiltered && (
-            <div className="flex items-center gap-0.5">
+          <div className="flex flex-wrap items-center gap-1">
+            {!location.is_primary && !isFiltered && (
+              <div className="flex items-center gap-0.5">
+                <button
+                  type="button"
+                  onClick={(event) => onReorder(event, 'up')}
+                  onKeyDown={(event) => event.stopPropagation()}
+                  disabled={isFirstNonPrimary}
+                  aria-label={`Move ${area} up`}
+                  className="rounded-md p-1 text-white/55 hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <ChevronUpIcon className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={(event) => onReorder(event, 'down')}
+                  onKeyDown={(event) => event.stopPropagation()}
+                  disabled={isLast}
+                  aria-label={`Move ${area} down`}
+                  className="rounded-md p-1 text-white/55 hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <ChevronDownIcon className="h-4 w-4" />
+                </button>
+              </div>
+            )}
+            {!location.is_primary && !isFiltered && (
               <button
                 type="button"
-                onClick={(event) => onReorder(event, 'up')}
+                onClick={onSetPrimary}
                 onKeyDown={(event) => event.stopPropagation()}
-                disabled={isFirstNonPrimary}
-                aria-label={`Move ${area} up`}
-                className="rounded-md p-1 text-white/55 hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                aria-label={`Set ${area} as primary`}
+                className="rounded-md px-1.5 py-1 text-xs text-white/65 hover:bg-white/10 hover:text-white"
               >
-                <ChevronUpIcon className="h-4 w-4" />
+                Set primary
               </button>
-              <button
-                type="button"
-                onClick={(event) => onReorder(event, 'down')}
-                onKeyDown={(event) => event.stopPropagation()}
-                disabled={isLast}
-                aria-label={`Move ${area} down`}
-                className="rounded-md p-1 text-white/55 hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <ChevronDownIcon className="h-4 w-4" />
-              </button>
-            </div>
-          )}
-          <button
-            type="button"
-            onClick={onDelete}
-            onKeyDown={(event) => event.stopPropagation()}
-            disabled={isDeleting}
-            aria-label={`Delete ${area}`}
-            className="rounded-md p-1 text-white/55 hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <CloseIcon className="h-4 w-4" />
-          </button>
+            )}
+            <button
+              type="button"
+              onClick={onDelete}
+              onKeyDown={(event) => event.stopPropagation()}
+              disabled={isDeleting}
+              aria-label={`Delete ${area}`}
+              className="rounded-md p-1 text-white/55 hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <CloseIcon className="h-4 w-4" />
+            </button>
+          </div>
         </div>
       </div>
       <div className="mt-3 grid gap-1.5 border-t border-white/10 px-4 py-2 text-xs">
@@ -163,6 +194,14 @@ export function SidebarCard({
           {reorderError}
         </p>
       )}
+      {primaryError && (
+        <p className="mx-4 mb-3 rounded-md border border-red-300/30 bg-red-500/15 px-2.5 py-1.5 text-xs text-red-100">
+          {primaryError}
+        </p>
+      )}
+      <p className="sr-only" aria-live="polite">
+        {primaryAnnouncement}
+      </p>
     </div>
   );
 }

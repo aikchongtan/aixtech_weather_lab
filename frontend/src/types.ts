@@ -66,6 +66,7 @@ export interface StoreValue {
   refresh: (id: number) => Promise<void>;
   remove: (id: number) => Promise<void>;
   reorder: (id: number, direction: 'up' | 'down') => Promise<void>;
+  setPrimary: (id: number) => Promise<void>;
 }
 
 export interface ProviderProps {
