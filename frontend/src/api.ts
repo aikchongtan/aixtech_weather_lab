@@ -40,6 +40,12 @@ export const refreshLocation = (id: number) =>
 export const deleteLocation = (id: number) =>
   request<void>(`/locations/${id}`, { method: 'DELETE' });
 
+export const reorderLocation = (id: number, direction: 'up' | 'down') =>
+  request<LocationsResponse>(`/locations/${id}/order`, {
+    method: 'PATCH',
+    body: JSON.stringify({ direction }),
+  });
+
 export async function getLocation(id: number): Promise<Location | null> {
   const response = await fetch(`${API_BASE}/locations/${id}`, {
     headers: { 'Content-Type': 'application/json' },

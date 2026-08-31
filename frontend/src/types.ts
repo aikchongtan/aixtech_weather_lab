@@ -65,6 +65,7 @@ export interface StoreValue {
   create: (payload: CreateLocationPayload) => Promise<void>;
   refresh: (id: number) => Promise<void>;
   remove: (id: number) => Promise<void>;
+  reorder: (id: number, direction: 'up' | 'down') => Promise<void>;
 }
 
 export interface ProviderProps {
