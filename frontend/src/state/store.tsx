@@ -4,6 +4,8 @@ import {
   createLocation,
   deleteLocation,
   refreshLocation,
+  reorderLocation,
+  setPrimaryLocation,
   logInteraction,
 } from '../api';
 import type { CreateLocationPayload, Location, ProviderProps, StoreValue } from '../types';
@@ -114,6 +116,47 @@ export function StoreProvider({ children }: ProviderProps) {
     [load],
   );
 
+  const reorder = useCallback(
+    async (id: number, direction: 'up' | 'down') => {
+      setError(null);
+      logInteraction('location_reorder_clicked', { locationId: id, direction });
+      try {
+        await reorderLocation(id, direction);
+        await load();
+        logInteraction('location_reordered', { locationId: id, direction });
+      } catch (err) {
+        setError(err);
+        logInteraction('location_reorder_failed', {
+          locationId: id,
+          direction,
+          error: err instanceof Error ? err.message : 'Unknown error',
+        });
+        throw err;
+      }
+    },
+    [load],
+  );
+
+  const setPrimary = useCallback(
+    async (id: number) => {
+      setError(null);
+      logInteraction('location_set_primary_clicked', { locationId: id });
+      try {
+        await setPrimaryLocation(id);
+        await load();
+        logInteraction('location_set_primary', { locationId: id });
+      } catch (err) {
+        setError(err);
+        logInteraction('location_set_primary_failed', {
+          locationId: id,
+          error: err instanceof Error ? err.message : 'Unknown error',
+        });
+        throw err;
+      }
+    },
+    [load],
+  );
+
   const value: StoreValue = {
     locations,
     selectedId: effectiveSelectedId,
@@ -129,6 +172,8 @@ export function StoreProvider({ children }: ProviderProps) {
     create,
     refresh,
     remove,
+    reorder,
+    setPrimary,
   };
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

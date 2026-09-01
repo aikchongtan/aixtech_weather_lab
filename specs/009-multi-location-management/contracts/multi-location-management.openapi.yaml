@@ -1,0 +1,194 @@
+openapi: 3.1.0
+info:
+  title: Weather Starter Multi-location Management API
+  version: 1.0.0
+  description: >
+    Contract additions and modifications for Feature 9.
+    All existing endpoints retain their current shape; only the Location schema
+    gains one new field (is_primary) and the GET /api/locations ordering guarantee.
+
+# ─── New endpoints ───────────────────────────────────────────────────────────
+
+paths:
+  /api/locations:
+    get:
+      operationId: listLocations
+      summary: List all saved locations
+      description: >
+        Returns all saved locations ordered by is_primary DESC, sort_order ASC.
+        The primary location is always at index 0. The response shape is
+        unchanged except for the new is_primary field on each Location.
+      responses:
+        '200':
+          description: Ordered location list.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [locations]
+                properties:
+                  locations:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Location'
+
+  /api/locations/{locationId}/order:
+    patch:
+      operationId: reorderLocation
+      summary: Move a saved location one position up or down
+      description: >
+        Swaps the sort_order of the target non-primary location with its
+        adjacent neighbour in the direction specified. The primary location
+        cannot be reordered via this endpoint. Returns the full updated
+        location list in the new order.
+      parameters:
+        - name: locationId
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReorderRequest'
+      responses:
+        '200':
+          description: Reorder successful. Returns updated ordered location list.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [locations]
+                properties:
+                  locations:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Location'
+        '400':
+          description: Request body is invalid (missing or unrecognised direction).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientError'
+        '404':
+          description: No saved location exists for the supplied identifier.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundError'
+        '409':
+          description: >
+            The move cannot be performed in the current state: the location is
+            already at the boundary in the requested direction, or the location
+            is the primary (whose position is fixed).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConflictError'
+
+  /api/locations/{locationId}/primary:
+    post:
+      operationId: setPrimaryLocation
+      summary: Designate a saved location as the primary
+      description: >
+        Sets the target location as the primary. Clears the previous primary
+        designation in the same atomic transaction. Idempotent: if the target
+        is already primary, returns 200 with no state change. Returns the full
+        updated location list.
+      parameters:
+        - name: locationId
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: Primary designation updated (or unchanged if already primary).
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [locations]
+                properties:
+                  locations:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Location'
+        '404':
+          description: No saved location exists for the supplied identifier.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundError'
+
+# ─── Schemas ─────────────────────────────────────────────────────────────────
+
+components:
+  schemas:
+
+    Location:
+      type: object
+      description: >
+        A saved location with its latest weather snapshot.
+        is_primary is the only field added by Feature 9; all other fields are
+        unchanged from existing behaviour.
+      required: [id, latitude, longitude, created_at, is_primary, weather]
+      properties:
+        id:
+          type: integer
+          minimum: 1
+        latitude:
+          type: number
+        longitude:
+          type: number
+        created_at:
+          type: string
+          format: date-time
+        is_primary:
+          type: boolean
+          description: >
+            True for the single designated primary location.
+            Exactly one location has is_primary: true when any locations are
+            saved; no location has is_primary: true when the list is empty.
+        weather:
+          type: object
+          description: Current weather snapshot (shape unchanged from existing API).
+
+    ReorderRequest:
+      type: object
+      required: [direction]
+      properties:
+        direction:
+          type: string
+          enum: [up, down]
+          description: >
+            "up" moves the location one position earlier in the non-primary
+            list. "down" moves it one position later.
+
+    ClientError:
+      type: object
+      required: [detail]
+      properties:
+        detail:
+          type: string
+          example: direction must be "up" or "down"
+
+    NotFoundError:
+      type: object
+      required: [detail]
+      properties:
+        detail:
+          type: string
+          example: Location not found
+
+    ConflictError:
+      type: object
+      required: [detail]
+      properties:
+        detail:
+          type: string
+          example: Location is already at the top of the list

@@ -6,6 +6,8 @@ import {
   getLocation,
   getLocationHistory,
   listLocations,
+  reorderLocation,
+  setPrimaryLocation,
   updateWeather,
 } from '../db.js';
 import {
@@ -128,6 +130,60 @@ export function createLocationsRouter(options: LocationsRouterOptions = {}): Rou
       }
 
       response.json({ location_id: locationId, readings });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.patch('/locations/:locationId/order', async (request, response, next) => {
+    try {
+      const locationId = Number(request.params.locationId);
+      if (!Number.isInteger(locationId) || locationId < 1) {
+        response.status(400).json({ detail: 'locationId must be a positive integer' });
+        return;
+      }
+
+      const direction = request.body?.direction;
+      if (direction !== 'up' && direction !== 'down') {
+        response.status(400).json({ detail: 'direction must be "up" or "down"' });
+        return;
+      }
+
+      const result = await reorderLocation(locationId, direction);
+      if (result.outcome === 'not_found') {
+        response.status(404).json({ detail: 'Location not found' });
+        return;
+      }
+      if (result.outcome === 'primary') {
+        response.status(409).json({ detail: 'Primary location cannot be reordered' });
+        return;
+      }
+      if (result.outcome === 'boundary') {
+        response.status(409).json({ detail: 'Location is already at the list boundary' });
+        return;
+      }
+
+      response.json({ locations: result.locations });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.post('/locations/:locationId/primary', async (request, response, next) => {
+    try {
+      const locationId = Number(request.params.locationId);
+      if (!Number.isInteger(locationId) || locationId < 1) {
+        response.status(400).json({ detail: 'locationId must be a positive integer' });
+        return;
+      }
+
+      const result = await setPrimaryLocation(locationId);
+      if (result.outcome === 'not_found') {
+        response.status(404).json({ detail: 'Location not found' });
+        return;
+      }
+
+      response.json({ locations: result.locations });
     } catch (error) {
       next(error);
     }

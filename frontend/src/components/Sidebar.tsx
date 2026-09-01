@@ -52,6 +52,9 @@ export function Sidebar() {
               key={location.id}
               location={location}
               isHome={location.id === locations[0].id}
+              isFiltered={query.length > 0}
+              isFirstNonPrimary={location.id === locations[1]?.id}
+              isLast={location.id === locations.at(-1)?.id}
             />
           ))
         )}

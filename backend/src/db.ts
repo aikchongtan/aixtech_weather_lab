@@ -1,7 +1,7 @@
 import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { and, desc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/sqlite-proxy';
 import { migrate } from 'drizzle-orm/sqlite-proxy/migrator';
 import { locations, weatherReadings, type WeatherSnapshot } from './schema.js';
@@ -11,6 +11,7 @@ export interface LocationRecord {
   latitude: number;
   longitude: number;
   created_at: string;
+  is_primary: boolean;
   weather: WeatherSnapshot;
 }
 
@@ -66,7 +67,7 @@ await migrate(
 
 export async function listLocations(): Promise<LocationRecord[]> {
   return (
-    await db.select().from(locations).orderBy(desc(locations.createdAt), desc(locations.id)).all()
+    await db.select().from(locations).orderBy(desc(locations.isPrimary), asc(locations.sortOrder)).all()
   ).map(rowToRecord);
 }
 
@@ -85,16 +86,25 @@ export async function createLocation(latitude: number, longitude: number): Promi
 
   const createdAt = new Date().toISOString().slice(0, 19);
   const weather = weatherToColumns(defaultWeather);
-  const row = await db
-    .insert(locations)
-    .values({
-      latitude,
-      longitude,
-      createdAt,
-      ...weather,
-    })
-    .returning()
-    .get();
+
+  let row!: LocationRow;
+  sqlite.exec('BEGIN');
+  try {
+    const agg = sqlite
+      .prepare('SELECT COUNT(*) AS cnt, MAX(sort_order) AS max_order FROM locations')
+      .get() as { cnt: number; max_order: number | null };
+    const sortOrder = (agg.max_order ?? 0) + 1;
+    const isPrimary = agg.cnt === 0 ? 1 : 0;
+    row = await db
+      .insert(locations)
+      .values({ latitude, longitude, createdAt, sortOrder, isPrimary, ...weather })
+      .returning()
+      .get();
+    sqlite.exec('COMMIT');
+  } catch (error) {
+    sqlite.exec('ROLLBACK');
+    throw error;
+  }
 
   return rowToRecord(row);
 }
@@ -104,9 +114,124 @@ export async function getLocation(id: number): Promise<LocationRecord | null> {
   return row ? rowToRecord(row) : null;
 }
 
+export type ReorderLocationResult =
+  | { outcome: 'not_found' }
+  | { outcome: 'primary' }
+  | { outcome: 'boundary' }
+  | { outcome: 'success'; locations: LocationRecord[] };
+
+export async function reorderLocation(
+  id: number,
+  direction: 'up' | 'down',
+): Promise<ReorderLocationResult> {
+  sqlite.exec('BEGIN');
+  try {
+    const target = await db.select().from(locations).where(eq(locations.id, id)).get();
+    if (!target) {
+      sqlite.exec('ROLLBACK');
+      return { outcome: 'not_found' };
+    }
+    if (target.isPrimary !== 0) {
+      sqlite.exec('ROLLBACK');
+      return { outcome: 'primary' };
+    }
+
+    const nonPrimaryLocations = await db
+      .select()
+      .from(locations)
+      .where(eq(locations.isPrimary, 0))
+      .orderBy(asc(locations.sortOrder))
+      .all();
+    const targetIndex = nonPrimaryLocations.findIndex((location) => location.id === id);
+    const neighbourIndex = direction === 'up' ? targetIndex - 1 : targetIndex + 1;
+    if (neighbourIndex < 0 || neighbourIndex >= nonPrimaryLocations.length) {
+      sqlite.exec('ROLLBACK');
+      return { outcome: 'boundary' };
+    }
+
+    const neighbour = nonPrimaryLocations[neighbourIndex]!;
+    await db
+      .update(locations)
+      .set({ sortOrder: neighbour.sortOrder })
+      .where(eq(locations.id, target.id))
+      .run();
+    await db
+      .update(locations)
+      .set({ sortOrder: target.sortOrder })
+      .where(eq(locations.id, neighbour.id))
+      .run();
+
+    const updatedLocations = await db
+      .select()
+      .from(locations)
+      .orderBy(desc(locations.isPrimary), asc(locations.sortOrder))
+      .all();
+    sqlite.exec('COMMIT');
+    return { outcome: 'success', locations: updatedLocations.map(rowToRecord) };
+  } catch (error) {
+    sqlite.exec('ROLLBACK');
+    throw error;
+  }
+}
+
+export type SetPrimaryLocationResult =
+  | { outcome: 'not_found' }
+  | { outcome: 'success'; locations: LocationRecord[] };
+
+export async function setPrimaryLocation(id: number): Promise<SetPrimaryLocationResult> {
+  sqlite.exec('BEGIN');
+  try {
+    const target = await db.select().from(locations).where(eq(locations.id, id)).get();
+    if (!target) {
+      sqlite.exec('ROLLBACK');
+      return { outcome: 'not_found' };
+    }
+
+    await db.update(locations).set({ isPrimary: 0 }).run();
+    await db.update(locations).set({ isPrimary: 1 }).where(eq(locations.id, target.id)).run();
+    const updatedLocations = await db
+      .select()
+      .from(locations)
+      .orderBy(desc(locations.isPrimary), asc(locations.sortOrder))
+      .all();
+    sqlite.exec('COMMIT');
+    return { outcome: 'success', locations: updatedLocations.map(rowToRecord) };
+  } catch (error) {
+    sqlite.exec('ROLLBACK');
+    throw error;
+  }
+}
+
 export async function deleteLocation(id: number): Promise<boolean> {
-  const row = await db.delete(locations).where(eq(locations.id, id)).returning({ id: locations.id }).get();
-  return Boolean(row);
+  sqlite.exec('BEGIN');
+  try {
+    const existing = await db
+      .select({ id: locations.id, isPrimary: locations.isPrimary })
+      .from(locations)
+      .where(eq(locations.id, id))
+      .get();
+    if (!existing) {
+      sqlite.exec('ROLLBACK');
+      return false;
+    }
+    await db.delete(locations).where(eq(locations.id, id)).run();
+    if (existing.isPrimary === 1) {
+      const next = await db
+        .select({ id: locations.id })
+        .from(locations)
+        .orderBy(asc(locations.sortOrder))
+        .limit(1)
+        .get();
+      if (next) {
+        await db.update(locations).set({ isPrimary: 1 }).where(eq(locations.id, next.id)).run();
+      }
+    }
+    sqlite.exec('COMMIT');
+    return true;
+  } catch (error) {
+    sqlite.exec('ROLLBACK');
+    throw error;
+  }
 }
 
 export async function getLocationHistory(
@@ -220,6 +345,7 @@ function rowToRecord(row: LocationRow): LocationRecord {
     latitude: row.latitude,
     longitude: row.longitude,
     created_at: row.createdAt,
+    is_primary: row.isPrimary !== 0,
     weather: {
       condition: row.condition,
       observed_at: row.observedAt,

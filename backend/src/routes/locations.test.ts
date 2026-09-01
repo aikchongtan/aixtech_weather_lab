@@ -339,4 +339,177 @@ describe('locations API', () => {
       detail: 'Location not found',
     });
   });
+
+  it('reorders non-primary locations and enforces reorder request outcomes', async () => {
+    const { resetStore } = await import('../db.js');
+    await resetStore();
+
+    const primary = (
+      await request(app).post('/api/locations').send({ latitude: 1.43, longitude: 103.93 }).expect(201)
+    ).body;
+    const firstNonPrimary = (
+      await request(app).post('/api/locations').send({ latitude: 1.44, longitude: 103.94 }).expect(201)
+    ).body;
+    const secondNonPrimary = (
+      await request(app).post('/api/locations').send({ latitude: 1.45, longitude: 103.95 }).expect(201)
+    ).body;
+
+    const movedUp = await request(app)
+      .patch(`/api/locations/${secondNonPrimary.id}/order`)
+      .send({ direction: 'up' })
+      .expect(200);
+    expect(movedUp.body.locations.map((location: { id: number }) => location.id)).toEqual([
+      primary.id,
+      secondNonPrimary.id,
+      firstNonPrimary.id,
+    ]);
+    expect(
+      movedUp.body.locations.every(
+        (location: { is_primary: boolean }) => typeof location.is_primary === 'boolean',
+      ),
+    ).toBe(true);
+
+    const persistedOrder = await request(app).get('/api/locations').expect(200);
+    expect(persistedOrder.body.locations.map((location: { id: number }) => location.id)).toEqual([
+      primary.id,
+      secondNonPrimary.id,
+      firstNonPrimary.id,
+    ]);
+
+    const movedDown = await request(app)
+      .patch(`/api/locations/${secondNonPrimary.id}/order`)
+      .send({ direction: 'down' })
+      .expect(200);
+    expect(movedDown.body.locations.map((location: { id: number }) => location.id)).toEqual([
+      primary.id,
+      firstNonPrimary.id,
+      secondNonPrimary.id,
+    ]);
+    expect(
+      movedDown.body.locations.every(
+        (location: { is_primary: boolean }) => typeof location.is_primary === 'boolean',
+      ),
+    ).toBe(true);
+
+    await request(app)
+      .patch(`/api/locations/${firstNonPrimary.id}/order`)
+      .send({ direction: 'up' })
+      .expect(409);
+    await request(app)
+      .patch(`/api/locations/${secondNonPrimary.id}/order`)
+      .send({ direction: 'down' })
+      .expect(409);
+    await request(app).patch(`/api/locations/${primary.id}/order`).send({ direction: 'down' }).expect(409);
+    await request(app).patch('/api/locations/999999/order').send({ direction: 'up' }).expect(404);
+    await request(app)
+      .patch(`/api/locations/${firstNonPrimary.id}/order`)
+      .send({ direction: 'sideways' })
+      .expect(400, { detail: 'direction must be "up" or "down"' });
+    await request(app).patch(`/api/locations/${firstNonPrimary.id}/order`).send({}).expect(400, {
+      detail: 'direction must be "up" or "down"',
+    });
+  });
+
+  it('sets a non-primary location as primary and handles primary endpoint outcomes', async () => {
+    const { resetStore } = await import('../db.js');
+    await resetStore();
+
+    const first = (
+      await request(app).post('/api/locations').send({ latitude: 1.31, longitude: 103.81 }).expect(201)
+    ).body;
+    const second = (
+      await request(app).post('/api/locations').send({ latitude: 1.32, longitude: 103.82 }).expect(201)
+    ).body;
+    const third = (
+      await request(app).post('/api/locations').send({ latitude: 1.33, longitude: 103.83 }).expect(201)
+    ).body;
+
+    const setPrimary = await request(app).post(`/api/locations/${third.id}/primary`).expect(200);
+    expect(setPrimary.body.locations.map((location: { id: number }) => location.id)).toEqual([
+      third.id,
+      first.id,
+      second.id,
+    ]);
+    expect(setPrimary.body.locations.filter((location: { is_primary: boolean }) => location.is_primary)).toHaveLength(1);
+    expect(
+      setPrimary.body.locations.every(
+        (location: { is_primary: boolean }) => typeof location.is_primary === 'boolean',
+      ),
+    ).toBe(true);
+
+    const idempotent = await request(app).post(`/api/locations/${third.id}/primary`).expect(200);
+    expect(idempotent.body.locations.map((location: { id: number }) => location.id)).toEqual([
+      third.id,
+      first.id,
+      second.id,
+    ]);
+    expect(idempotent.body.locations.filter((location: { is_primary: boolean }) => location.is_primary)).toHaveLength(1);
+    expect(
+      idempotent.body.locations.every(
+        (location: { is_primary: boolean }) => typeof location.is_primary === 'boolean',
+      ),
+    ).toBe(true);
+
+    await request(app).post('/api/locations/999999/primary').expect(404, { detail: 'Location not found' });
+    const afterNotFound = await request(app).get('/api/locations').expect(200);
+    expect(afterNotFound.body.locations.map((location: { id: number }) => location.id)).toEqual([
+      third.id,
+      first.id,
+      second.id,
+    ]);
+    expect(
+      afterNotFound.body.locations.filter((location: { is_primary: boolean }) => location.is_primary),
+    ).toHaveLength(1);
+    expect(
+      afterNotFound.body.locations.find((location: { is_primary: boolean }) => location.is_primary)?.id,
+    ).toBe(third.id);
+    await request(app).post('/api/locations/invalid/primary').expect(400, {
+      detail: 'locationId must be a positive integer',
+    });
+    await request(app).post('/api/locations/0/primary').expect(400, {
+      detail: 'locationId must be a positive integer',
+    });
+  });
+
+  it('maintains the primary invariant across create, primary-change, and delete flows', async () => {
+    const { resetStore } = await import('../db.js');
+    await resetStore();
+
+    const first = (
+      await request(app).post('/api/locations').send({ latitude: 1.34, longitude: 103.84 }).expect(201)
+    ).body;
+    expect(first.is_primary).toBe(true);
+    const second = (
+      await request(app).post('/api/locations').send({ latitude: 1.35, longitude: 103.85 }).expect(201)
+    ).body;
+    expect(second.is_primary).toBe(false);
+    const third = (
+      await request(app).post('/api/locations').send({ latitude: 1.36, longitude: 103.86 }).expect(201)
+    ).body;
+
+    await request(app).post(`/api/locations/${third.id}/primary`).expect(200);
+    await request(app).delete(`/api/locations/${third.id}`).expect(204);
+    let locations = (await request(app).get('/api/locations').expect(200)).body.locations;
+    expect(locations.map((location: { id: number }) => location.id)).toEqual([first.id, second.id]);
+    expect(locations.filter((location: { is_primary: boolean }) => location.is_primary)).toHaveLength(1);
+    expect(locations[0].is_primary).toBe(true);
+
+    const fourth = (
+      await request(app).post('/api/locations').send({ latitude: 1.37, longitude: 103.87 }).expect(201)
+    ).body;
+    locations = (await request(app).get('/api/locations').expect(200)).body.locations;
+    expect(locations.filter((location: { is_primary: boolean }) => location.is_primary)).toHaveLength(1);
+    expect(locations.find((location: { is_primary: boolean }) => location.is_primary)?.id).toBe(first.id);
+    expect(fourth.is_primary).toBe(false);
+
+    await resetStore();
+    const sole = (
+      await request(app).post('/api/locations').send({ latitude: 1.38, longitude: 103.88 }).expect(201)
+    ).body;
+    expect(sole.is_primary).toBe(true);
+    await request(app).delete(`/api/locations/${sole.id}`).expect(204);
+    locations = (await request(app).get('/api/locations').expect(200)).body.locations;
+    expect(locations).toEqual([]);
+    expect(locations.filter((location: { is_primary: boolean }) => location.is_primary)).toHaveLength(0);
+  });
 });

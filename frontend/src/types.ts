@@ -38,6 +38,7 @@ export interface Location {
   latitude: number;
   longitude: number;
   created_at: string;
+  is_primary: boolean;
   weather: WeatherSnapshot;
 }
 
@@ -64,6 +65,8 @@ export interface StoreValue {
   create: (payload: CreateLocationPayload) => Promise<void>;
   refresh: (id: number) => Promise<void>;
   remove: (id: number) => Promise<void>;
+  reorder: (id: number, direction: 'up' | 'down') => Promise<void>;
+  setPrimary: (id: number) => Promise<void>;
 }
 
 export interface ProviderProps {
